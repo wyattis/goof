@@ -4,8 +4,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"goof/schema"
 	"sort"
+
+	"github.com/wyattis/goof/schema"
 )
 
 var (

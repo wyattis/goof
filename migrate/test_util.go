@@ -2,7 +2,8 @@ package migrate
 
 import (
 	"database/sql"
-	"goof/schema"
+
+	"github.com/wyattis/goof/schema"
 )
 
 var sqliteDbFile = ":memory:"

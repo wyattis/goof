@@ -1,9 +1,10 @@
 package migrate
 
 import (
-	"goof/schema"
 	"os"
 	"testing"
+
+	"github.com/wyattis/goof/schema"
 
 	_ "github.com/mattn/go-sqlite3"
 )

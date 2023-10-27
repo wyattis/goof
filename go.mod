@@ -1,4 +1,4 @@
-module goof
+module github.com/wyattis/goof
 
 go 1.19
 
