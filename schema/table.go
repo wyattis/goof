@@ -5,6 +5,7 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"strings"
 	"text/template"
 )
 
@@ -204,6 +205,7 @@ func sqliteFuncMap() template.FuncMap {
 				return ""
 			}
 		},
+		"join": strings.Join,
 	}
 }
 

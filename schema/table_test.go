@@ -69,7 +69,7 @@ var createStatements = []testStatement{
 			t.String("email")
 			t.Unique("username", "email")
 		},
-		SqliteResult: "CREATE TABLE `compound_unique` (\n'username' VARCHAR(255) NOT NULL,\n'email' VARCHAR(255) NOT NULL);CREATE UNIQUE INDEX ON `compound_unique`('username', 'email');",
+		SqliteResult: "CREATE TABLE `compound_unique` (\n'username' VARCHAR(255) NOT NULL,\n'email' VARCHAR(255) NOT NULL);CREATE UNIQUE INDEX 'unq_compound_unique_username_email' ON `compound_unique`('username', 'email');",
 	},
 	{
 		Table: "single_index",

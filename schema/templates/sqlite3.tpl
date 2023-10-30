@@ -35,7 +35,7 @@ PRIMARY KEY (
 
 {{ define "create_index" }}
 CREATE{{ if .Unique }} UNIQUE{{- end }} INDEX{{ if .IfNotExists }} IF NOT EXISTS{{ end }}
-{{- if .Name }} `{{.Name}}`{{ end }} ON `{{.Table.Name}}`(
+{{- if .Name }} `{{.Name}}` {{ else }} 'unq_{{.Table.Name}}_{{ join .Columns "_"}}'{{ end }} ON `{{.Table.Name}}`(
   {{- range $i, $col := .Columns -}}
   {{- if $i }}, {{ end -}}
   '{{- $col -}}'

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/wyattis/goof/schema"
 )
@@ -45,11 +46,9 @@ func Begin(db *sql.DB, fn func(tx *sql.Tx) (err error)) (err error) {
 			}
 		}
 	}()
-	fmt.Println("running tx")
 	if err = fn(tx); err != nil {
 		return
 	}
-	fmt.Println("committing")
 	if err = tx.Commit(); err != nil {
 		return
 	}
@@ -76,7 +75,6 @@ func currentVersion(db *sql.DB, driverType schema.DriverType, name string) (vers
 		return
 	}
 	q := "SELECT id FROM `schema_migrations` ORDER BY id DESC LIMIT 1"
-	fmt.Println("getting current version", q)
 	err = db.QueryRow(q).Scan(&version)
 	if errors.Is(err, sql.ErrNoRows) {
 		err = nil
@@ -98,7 +96,7 @@ func hasMatchingVersion(migrations []Migration, version uint) bool {
 func databaseIsClean(db *sql.DB) bool {
 	var count int
 	err := db.QueryRow("SELECT count(*) FROM `schema_migrations` where dirty").Scan(&count)
-	return count == 0 && err == nil
+	return count == 0 && (err == nil || strings.Contains(err.Error(), "no such table"))
 }
 
 func validateMigration(migrations []Migration, db *sql.DB, driver schema.DriverType, name string, version uint) (schemaVersion uint, err error) {
@@ -127,11 +125,9 @@ func migrateUpTo(migrations []Migration, db *sql.DB, driver schema.DriverType, n
 	}
 	for _, m := range migrations {
 		if m.Id > schemaVersion && m.Id <= version {
-			fmt.Printf("migration.Up %d (%d to %d)\n", m.Id, schemaVersion, version)
 			err = Begin(db, func(tx *sql.Tx) (err error) {
 				// mark current migration as dirty before we start
 				q := "INSERT INTO `schema_migrations` (`id`, `dirty`) VALUES (?, ?)"
-				fmt.Println("marking migration as dirty", q, m.Id, true)
 				_, err = tx.Exec(q, m.Id, true)
 				if err != nil {
 					return
@@ -142,7 +138,6 @@ func migrateUpTo(migrations []Migration, db *sql.DB, driver schema.DriverType, n
 					return
 				}
 				q = fmt.Sprintf("UPDATE `schema_migrations` SET `dirty` = ?, `finished_at` = %s WHERE `id` = ?", schema.NOW{}.Constant(driver))
-				fmt.Println("marking migration as complete", q, false, m.Id)
 				_, err = tx.Exec(q, false, m.Id)
 				return
 			})
@@ -166,11 +161,9 @@ func migrateDownTo(migrations []Migration, db *sql.DB, driver schema.DriverType,
 	for i := len(migrations) - 1; i >= 0; i-- {
 		m := migrations[i]
 		if m.Id <= schemaVersion && m.Id > version {
-			fmt.Printf("migration.Down %d (%d to %d)\n", m.Id, schemaVersion, version)
 			err = Begin(db, func(tx *sql.Tx) (err error) {
 				// mark current migration as dirty before we start
 				q := "UPDATE `schema_migrations` SET `dirty` = ? WHERE `id` = ?"
-				fmt.Println("marking migration as dirty", q, true, m.Id)
 				_, err = tx.Exec(q, true, m.Id)
 				if err != nil {
 					return
@@ -181,7 +174,6 @@ func migrateDownTo(migrations []Migration, db *sql.DB, driver schema.DriverType,
 					return
 				}
 				q = "DELETE FROM `schema_migrations` WHERE `id` = ?"
-				fmt.Println("marking migration as complete", q, m.Id)
 				_, err = tx.Exec(q, m.Id)
 				return
 			})

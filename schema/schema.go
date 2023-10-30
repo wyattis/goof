@@ -117,9 +117,7 @@ func (s *SchemaDef) DropStatements() (statements []string) {
 
 func (s *SchemaDef) Run(tx *sql.Tx) (err error) {
 	statements := s.Statements()
-	fmt.Printf("running %d statements\n", len(statements))
 	for _, statement := range statements {
-		fmt.Println("running statement", statement)
 		_, err = tx.Exec(statement)
 		if err != nil {
 			return
