@@ -1,25 +1,21 @@
 package schema
 
-type DriverType string
-
-const (
-	DriverTypeSqlite3  DriverType = "sqlite3"
-	DriverTypeMysql    DriverType = "mysql"
-	DriverTypePostgres DriverType = "postgres"
-)
+import "github.com/wyattis/goof/sql/driver"
 
 type Constant interface {
-	Constant(driver DriverType) string
+	Constant(driver driver.Type) string
 }
 
 // Constant functions
 type NOW struct{}
 
-func (n NOW) Constant(driver DriverType) string {
-	switch driver {
-	case DriverTypeSqlite3:
+func (n NOW) Constant(driverType driver.Type) string {
+	switch driverType {
+	case driver.TypeSqlite3:
 		return "CURRENT_TIMESTAMP"
 	default:
-		panic("unknown driver type")
+		panic("unsupported driver type")
 	}
 }
+
+type CURRENT_TIMESTAMP = NOW

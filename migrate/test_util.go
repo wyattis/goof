@@ -3,7 +3,7 @@ package migrate
 import (
 	"database/sql"
 
-	"github.com/wyattis/goof/schema"
+	"github.com/wyattis/goof/sql/driver"
 )
 
 var sqliteDbFile = ":memory:"
@@ -13,6 +13,6 @@ func setupSqlite() (db *sql.DB, err error) {
 	if err != nil {
 		return
 	}
-	err = initializeSchema(db, schema.DriverTypeSqlite3, "test")
+	err = initializeSchema(db, driver.TypeSqlite3, "test")
 	return
 }

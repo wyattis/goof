@@ -9,15 +9,23 @@ const (
 	TypeJson
 	TypeInteger
 	TypeBigInt
-	TypeDecimal
+	TypeMediumInt
+	TypeSmallInt
 	TypeTinyInt
+	TypeDecimal
 	TypeFloat
+	TypeNumeric
+	TypeDouble
 	TypeBoolean
 	TypeDate
 	TypeDateTime
 	TypeTime
 	TypeTimestamp
 	TypeEnum
+	TypeBit
+	TypeBinary
+	TypeVarBinary
+	TypeBlob
 )
 
 type columnRef struct {
@@ -38,6 +46,7 @@ type columnDef struct {
 	IsNull          bool
 	IsPrimary       bool
 	IsAutoincrement bool
+	Comment         string
 	EnumValues      []interface{}
 	ReferenceTo     *columnRef
 	DefaultVal      interface{}
@@ -115,6 +124,14 @@ func (c *columnBuilder) Default(value interface{}) *columnBuilder {
 	return c.applyMods(Default(value))
 }
 
+func (c *columnBuilder) Comment(comment string) *columnBuilder {
+	return c.applyMods(Comment(comment))
+}
+
+func (c *columnBuilder) Type(t ColumnType) *columnBuilder {
+	return c.applyMods(Type(t))
+}
+
 type ColumnMod func(*columnDef)
 
 func VarChar(n int) ColumnMod {
@@ -155,6 +172,12 @@ func Primary() ColumnMod {
 	}
 }
 
+func Comment(comment string) ColumnMod {
+	return func(c *columnDef) {
+		c.Comment = comment
+	}
+}
+
 func Index(name string) ColumnMod {
 	return func(c *columnDef) {
 		c.table.Index(c.Name).Name(name)
@@ -182,6 +205,30 @@ func NotNull() ColumnMod {
 func Autoincrement() ColumnMod {
 	return func(c *columnDef) {
 		c.IsAutoincrement = true
+	}
+}
+
+func Type(t ColumnType) ColumnMod {
+	return func(c *columnDef) {
+		c.Kind = t
+	}
+}
+
+func Binary() ColumnMod {
+	return func(c *columnDef) {
+		c.Kind = TypeBinary
+	}
+}
+
+func VarBinary() ColumnMod {
+	return func(c *columnDef) {
+		c.Kind = TypeVarBinary
+	}
+}
+
+func Blob() ColumnMod {
+	return func(c *columnDef) {
+		c.Kind = TypeBlob
 	}
 }
 

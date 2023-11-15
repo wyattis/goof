@@ -5,13 +5,14 @@ import (
 	"testing"
 
 	"github.com/wyattis/goof/schema"
+	"github.com/wyattis/goof/sql/driver"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
 var userCommentMigrations = []Migration{
 	{
-		Id: 1,
+		Version: 1,
 		Up: func(s *schema.Schema) {
 			s.Create("user", func(t *schema.Table) {
 				t.Primary("id")
@@ -27,7 +28,7 @@ var userCommentMigrations = []Migration{
 		},
 	},
 	{
-		Id: 2,
+		Version: 2,
 		Up: func(s *schema.Schema) {
 			s.Create("comment", func(t *schema.Table) {
 				t.Primary("id")
@@ -56,16 +57,16 @@ func TestSqliteUp(t *testing.T) {
 	}
 	defer db.Close()
 
-	if err := migrateUpTo(userCommentMigrations, db, schema.DriverTypeSqlite3, "test", 1); err != nil {
+	if err := MigrateUpTo(userCommentMigrations, db, driver.TypeSqlite3, "test", 1); err != nil {
 		t.Fatalf("Failed the first migration to version 1: %s", err)
 	}
-	if err := migrateUpTo(userCommentMigrations, db, schema.DriverTypeSqlite3, "test", 1); err != nil {
+	if err := MigrateUpTo(userCommentMigrations, db, driver.TypeSqlite3, "test", 1); err != nil {
 		t.Fatalf("Failed the second call to version 1. Migration should be idempotent: %s", err)
 	}
-	if err := migrateUpTo(userCommentMigrations, db, schema.DriverTypeSqlite3, "test", 2); err != nil {
+	if err := MigrateUpTo(userCommentMigrations, db, driver.TypeSqlite3, "test", 2); err != nil {
 		t.Fatalf("Failed the first call to version 2: %s", err)
 	}
-	if err := migrateUpTo(userCommentMigrations, db, schema.DriverTypeSqlite3, "test", 2); err != nil {
+	if err := MigrateUpTo(userCommentMigrations, db, driver.TypeSqlite3, "test", 2); err != nil {
 		t.Fatalf("Failed the second call to version 2. Migration should be idempotent: %s", err)
 	}
 }
@@ -77,10 +78,10 @@ func TestSqliteDown(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	if err := migrateUpTo(userCommentMigrations, db, schema.DriverTypeSqlite3, "test", 2); err != nil {
+	if err := MigrateUpTo(userCommentMigrations, db, driver.TypeSqlite3, "test", 2); err != nil {
 		t.Error("Failed to migrate up", err)
 	}
-	if err := migrateDownTo(userCommentMigrations, db, schema.DriverTypeSqlite3, "test", 1); err != nil {
+	if err := migrateDownTo(userCommentMigrations, db, driver.TypeSqlite3, "test", 1); err != nil {
 		t.Error("Failed to migrate down", err)
 	}
 }

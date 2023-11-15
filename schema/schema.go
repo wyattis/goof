@@ -1,13 +1,20 @@
 package schema
 
 import (
+	"crypto/md5"
 	"database/sql"
 	"fmt"
+
+	"github.com/wyattis/goof/sql/driver"
 )
+
+type Printfer interface {
+	Printf(format string, v ...interface{})
+}
 
 type TableMutator func(t *Table)
 
-func New(driver DriverType, name string) *Schema {
+func New(driver driver.Type, name string) *Schema {
 	return &Schema{
 		Schema: &SchemaDef{
 			Driver: driver,
@@ -22,7 +29,7 @@ type Statement struct {
 }
 
 type SchemaDef struct {
-	Driver          DriverType
+	Driver          driver.Type
 	Name            string
 	Tables          []*TableDef
 	Execs           []Statement
@@ -115,9 +122,23 @@ func (s *SchemaDef) DropStatements() (statements []string) {
 	return
 }
 
-func (s *SchemaDef) Run(tx *sql.Tx) (err error) {
+func (s *SchemaDef) Hash() (hash []byte, err error) {
+	sum := md5.New()
+	for _, statement := range s.Statements() {
+		if _, err = sum.Write([]byte(statement)); err != nil {
+			return
+		}
+	}
+	hash = sum.Sum(nil)
+	return
+}
+
+func (s *SchemaDef) Run(tx *sql.Tx, logger Printfer) (err error) {
 	statements := s.Statements()
 	for _, statement := range statements {
+		if logger != nil {
+			logger.Printf("%s\n", statement)
+		}
 		_, err = tx.Exec(statement)
 		if err != nil {
 			return

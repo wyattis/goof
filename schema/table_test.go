@@ -3,6 +3,8 @@ package schema
 import (
 	"strings"
 	"testing"
+
+	"github.com/wyattis/goof/sql/driver"
 )
 
 type testStatement struct {
@@ -101,7 +103,7 @@ var createStatements = []testStatement{
 
 func TestSqliteCreate(t *testing.T) {
 	for i, s := range createStatements {
-		schema := New(DriverTypeSqlite3, "test")
+		schema := New(driver.TypeSqlite3, "test")
 		var table *Table
 		schema.Create(s.Table, func(t *Table) {
 			table = t
@@ -128,7 +130,7 @@ var alterStatements = []testStatement{
 
 func TestSqliteAlter(t *testing.T) {
 	for i, s := range alterStatements {
-		schema := New(DriverTypeSqlite3, "test")
+		schema := New(driver.TypeSqlite3, "test")
 		var table *Table
 		schema.Table(s.Table, func(t *Table) {
 			table = t

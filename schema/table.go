@@ -7,6 +7,8 @@ import (
 	"io/fs"
 	"strings"
 	"text/template"
+
+	"github.com/wyattis/goof/sql/driver"
 )
 
 type TableDef struct {
@@ -119,6 +121,21 @@ func (t *Table) Boolean(name string, mods ...ColumnMod) *columnBuilder {
 	return t.Column(name, mods...)
 }
 
+func (t *Table) Binary(name string, mods ...ColumnMod) *columnBuilder {
+	mods = append([]ColumnMod{Binary()}, mods...)
+	return t.Column(name, mods...)
+}
+
+func (t *Table) Blob(name string, mods ...ColumnMod) *columnBuilder {
+	mods = append([]ColumnMod{Blob()}, mods...)
+	return t.Column(name, mods...)
+}
+
+func (t *Table) VarBinary(name string, mods ...ColumnMod) *columnBuilder {
+	mods = append([]ColumnMod{VarBinary()}, mods...)
+	return t.Column(name, mods...)
+}
+
 func (t *TableDef) NumPrimary() int {
 	res := 0
 	for _, c := range t.Columns {
@@ -139,42 +156,13 @@ func (t *TableDef) Statements() (statements []string) {
 	return
 }
 
-var defaultTypeMap = map[ColumnType]string{
-	TypeVarChar:   "VARCHAR",
-	TypeNVarChar:  "NVARCHAR",
-	TypeText:      "TEXT",
-	TypeJson:      "JSON",
-	TypeInteger:   "INTEGER",
-	TypeDateTime:  "DATETIME",
-	TypeEnum:      "ENUM",
-	TypeBoolean:   "BOOLEAN",
-	TypeBigInt:    "BIGINT",
-	TypeDecimal:   "DECIMAL",
-	TypeTinyInt:   "TINYINT",
-	TypeFloat:     "FLOAT",
-	TypeDate:      "DATE",
-	TypeTime:      "TIME",
-	TypeTimestamp: "TIMESTAMP",
-}
-
-var sqliteTypeMap = map[ColumnType]string{}
-var mysqlTypeMap = map[ColumnType]string{}
-var postgresTypeMap = map[ColumnType]string{}
-
 //go:embed templates/*
 var templates embed.FS
 
 func sqliteFuncMap() template.FuncMap {
-	typeMap := map[ColumnType]string{}
-	for k, v := range defaultTypeMap {
-		typeMap[k] = v
-	}
-	for k, v := range sqliteTypeMap {
-		typeMap[k] = v
-	}
 	return template.FuncMap{
 		"GetType": func(kind ColumnType, num int) string {
-			res := typeMap[kind]
+			res := sqliteTypeMap[kind]
 			if res == "VARCHAR" || res == "NVARCHAR" {
 				res += fmt.Sprintf("(%d)", num)
 			}
@@ -200,7 +188,7 @@ func sqliteFuncMap() template.FuncMap {
 				if !ok {
 					return fmt.Sprintf(" DEFAULT '%s'", val)
 				}
-				return fmt.Sprintf(" DEFAULT %s", c.Constant(DriverTypeSqlite3))
+				return fmt.Sprintf(" DEFAULT %s", c.Constant(driver.TypeSqlite3))
 			default:
 				return ""
 			}
@@ -216,11 +204,11 @@ func (t *TableDef) loadTemplates() (tmp *template.Template) {
 	}
 	var funcMap template.FuncMap
 	switch t.Schema.Driver {
-	case DriverTypeMysql:
+	case driver.TypeMysql:
 		// TODO
-	case DriverTypePostgres:
+	case driver.TypePostgres:
 		// TODO
-	case DriverTypeSqlite3:
+	case driver.TypeSqlite3:
 		funcMap = sqliteFuncMap()
 	default:
 		panic("unknown driver type")
