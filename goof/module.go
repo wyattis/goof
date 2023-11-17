@@ -2,6 +2,7 @@ package goof
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/sessions"
@@ -24,11 +25,16 @@ type HttpConfig struct {
 	}
 }
 
+type SessionStoreConfig struct {
+	KeyPairs [][]byte
+}
+
 type RootConfig struct {
-	Production bool
-	DB         driver.Config
-	Http       HttpConfig
-	Log        log.Config
+	Production   bool
+	DB           driver.Config
+	Http         HttpConfig
+	Log          log.Config
+	SessionStore SessionStoreConfig
 }
 
 type ControllerConfig struct {
@@ -62,6 +68,10 @@ type ControllersModule interface {
 	Controllers(db *sqlx.DB) []Controller
 }
 
+type DependenciesModule interface {
+	DependsOn() []string
+}
+
 type MigrationsModule interface {
 	Migrations() []migrate.Migration
 }
@@ -74,21 +84,21 @@ type Module interface {
 	Close() (err error)
 }
 
-type ModuleBase struct{}
+type BaseModule struct{}
 
-func (m *ModuleBase) PreInit(api ModuleApi, config interface{}) (err error) {
+func (m *BaseModule) PreInit(api ModuleApi, config interface{}) (err error) {
 	return nil
 }
 
-func (m *ModuleBase) Init(api ModuleApi, config interface{}) (err error) {
+func (m *BaseModule) Init(api ModuleApi, config interface{}) (err error) {
 	return nil
 }
 
-func (m *ModuleBase) PostInit(api ModuleApi, config interface{}) (err error) {
+func (m *BaseModule) PostInit(api ModuleApi, config interface{}) (err error) {
 	return nil
 }
 
-func (m *ModuleBase) Close() (err error) {
+func (m *BaseModule) Close() (err error) {
 	return nil
 }
 
@@ -98,6 +108,7 @@ type moduleDef struct {
 	config       interface{}
 	controllers  []Controller
 	migrations   []migrate.Migration
+	dependsOn    []string
 	db           *sqlx.DB
 }
 
@@ -126,21 +137,26 @@ func (m *moduleDef) GetDB() (db *sqlx.DB, err error) {
 
 type RootModule struct {
 	Config RootConfig
+	engine *gin.Engine
 
 	hasInitialized bool
 	modules        []*moduleDef
 	middleware     []gin.HandlerFunc
-	engine         *gin.Engine
 	db             *sqlx.DB
 	sessionStore   sessions.Store
 }
 
-// Add a module to the root module. Modules are initialized in the order they are added.
+// Add a module to the root module. Modules are initialized in the order they are added unless module dependencies are
+// specified. In which case, the order of initialization is determined by the dependency graph.
 func (r *RootModule) Add(modules ...Module) {
 	for _, module := range modules {
-		r.modules = append(r.modules, &moduleDef{
+		def := &moduleDef{
 			module: module,
-		})
+		}
+		if m, ok := module.(DependenciesModule); ok {
+			def.dependsOn = m.DependsOn()
+		}
+		r.modules = append(r.modules, def)
 	}
 }
 
@@ -182,6 +198,9 @@ func (r *RootModule) Init() (err error) {
 	if err = r.initControllers(); err != nil {
 		return fmt.Errorf("Failed to init controllers:\n %w", err)
 	}
+	if log.Debug().Enabled() {
+		r.printRoutes()
+	}
 	for _, m := range r.modules {
 		if err = m.module.PostInit(m, m.config); err != nil {
 			return fmt.Errorf("Failed to PostInit module %s:\n %w", m.module.Id(), err)
@@ -190,27 +209,81 @@ func (r *RootModule) Init() (err error) {
 	return
 }
 
+// Start the server. This will initialize the server if it has not already been initialized.
+func (r *RootModule) Run() (err error) {
+	if !r.hasInitialized {
+		if err = r.Init(); err != nil {
+			return fmt.Errorf("Failed to init server:\n %w", err)
+		}
+	}
+	if r.Config.Http.SSL.Enabled {
+		log.Info().Msgf("Starting TLS server on '%s'", r.Config.Http.Addr)
+		return r.engine.RunTLS(r.Config.Http.Addr, r.Config.Http.SSL.CertFile, r.Config.Http.SSL.KeyFile)
+	}
+	log.Info().Msgf("Starting server on '%s'", r.Config.Http.Addr)
+	return r.engine.Run(r.Config.Http.Addr)
+}
+
+// Get the engine instance
+func (r *RootModule) Engine() *gin.Engine {
+	return r.engine
+}
+
 func (r *RootModule) initRoot() (err error) {
 	if err = log.Init(r.Config.Log); err != nil {
 		return fmt.Errorf("Failed to init log:\n %w", err)
 	}
 	migrate.SetLogger(&log.Logger)
 	// TODO: make session store configurable
-	r.sessionStore = sessions.NewCookieStore([]byte("secret"))
+	r.sessionStore = sessions.NewCookieStore(r.Config.SessionStore.KeyPairs...)
 	gin.SetMode(gin.ReleaseMode)
 	r.engine = gin.Default()
 	r.engine.Use(r.middleware...)
 	if !r.Config.Production {
 		r.engine.Use(middleware.CORS())
-	} else {
-		r.printRoutes()
 	}
+
+	// TODO: reorder the modules based on dependencies
+	if err = r.resolveModuleDependencies(); err != nil {
+		return fmt.Errorf("Failed to resolve module dependencies:\n %w", err)
+	}
+
+	return
+}
+
+func (r *RootModule) resolveModuleDependencies() (err error) {
+	moduleIds := make(map[string]bool)
+	for _, m := range r.modules {
+		moduleIds[m.module.Id()] = true
+	}
+
+	// We need to make sure all modules dependencies are satisfied
+	for _, m := range r.modules {
+		for _, dep := range m.dependsOn {
+			if !moduleIds[dep] {
+				return fmt.Errorf("Module '%s' depends on module '%s' which has not been added", m.module.Id(), dep)
+			}
+		}
+	}
+
+	// Here we just want to know if j depends on i and if so, we want to move j before i
+	sort.SliceStable(r.modules, func(i, j int) (isLess bool) {
+		jId := r.modules[j].module.Id()
+		iDeps := r.modules[i].dependsOn
+		for _, dep := range iDeps {
+			if dep == jId {
+				return true
+			}
+		}
+		return false
+	})
+
 	return
 }
 
 func (r *RootModule) printRoutes() {
 	for _, r := range r.engine.Routes() {
-		fmt.Printf("%s %s -> %v\n", r.Method, r.Path, r.HandlerFunc)
+		log.Debug().Msgf("%s %s -> %v", r.Method, r.Path, r.HandlerFunc)
 	}
 }
 
@@ -262,17 +335,4 @@ func (r *RootModule) runMigrations() (err error) {
 	targetVersion := version - 1
 	log.Debug().Msgf("running migrations up to version %d", targetVersion)
 	return migrate.MigrateUpTo(migrations, r.db.DB, r.Config.DB.DriverName, r.Config.DB.Database, targetVersion)
-}
-
-// Start the server. This will initialize the server if it has not already been initialized.
-func (r *RootModule) Run() (err error) {
-	if err = r.Init(); err != nil {
-		return fmt.Errorf("Failed to init server:\n %w", err)
-	}
-	if r.Config.Http.SSL.Enabled {
-		log.Info().Msgf("Starting TLS server on '%s'", r.Config.Http.Addr)
-		return r.engine.RunTLS(r.Config.Http.Addr, r.Config.Http.SSL.CertFile, r.Config.Http.SSL.KeyFile)
-	}
-	log.Info().Msgf("Starting server on '%s'", r.Config.Http.Addr)
-	return r.engine.Run(r.Config.Http.Addr)
 }
