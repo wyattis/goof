@@ -135,6 +135,8 @@ func (m *moduleDef) GetDB() (db *sqlx.DB, err error) {
 	return m.db, nil
 }
 
+// This is the root module. It is responsible for initializing all other modules, configuring the gin.Engine and
+// starting the server.
 type RootModule struct {
 	Config RootConfig
 	engine *gin.Engine
@@ -237,7 +239,12 @@ func (r *RootModule) initRoot() (err error) {
 	// TODO: make session store configurable
 	r.sessionStore = sessions.NewCookieStore(r.Config.SessionStore.KeyPairs...)
 	gin.SetMode(gin.ReleaseMode)
-	r.engine = gin.Default()
+	r.engine = gin.New()
+	r.engine.NoRoute(middleware.Log(), func(c *gin.Context) {
+		c.AbortWithStatus(404)
+	})
+
+	r.engine.Use(gin.Recovery(), middleware.Log())
 	r.engine.Use(r.middleware...)
 	if !r.Config.Production {
 		r.engine.Use(middleware.CORS())

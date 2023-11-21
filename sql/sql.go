@@ -23,3 +23,22 @@ func Open(config driver.Config) (db *sql.DB, err error) {
 	}
 	return connector(config)
 }
+
+func QueryParams(n int) string {
+	p := ""
+	for i := 0; i < n; i++ {
+		p += "?"
+		if i < n-1 {
+			p += ", "
+		}
+	}
+	return p
+}
+
+func NamedColumns(columns []string) []string {
+	c := make([]string, len(columns))
+	for i, col := range columns {
+		c[i] = fmt.Sprintf(":%s", col)
+	}
+	return c
+}

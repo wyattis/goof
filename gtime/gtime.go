@@ -40,16 +40,18 @@ type formattable interface {
 const TimeANSICFormat = time.ANSIC // The format used for ANSIC
 
 // TimeANSIC is a wrapper around time.Time that implements the sql.Scanner and driver.Valuer with the 
-// format `TimeANSICFormat`
+// format `TimeANSICFormat`. If the value is zero when `Value()` is called, it will use the current time
 type TimeANSIC struct {
   time.Time
 }
 
+// Implements the `sql.Scanner` interface
 func (t *TimeANSIC) Scan(src interface{}) (err error) {
 	t.Time, err = parseLayout(src, TimeANSICFormat)
 	return
 }
 
+// Implements the `driver.Valuer` interface
 func (t TimeANSIC) Value() (driver.Value, error) {
 	return t.String(), nil
 }
@@ -58,6 +60,7 @@ func (t TimeANSIC) String() string {
 	return t.Time.Format(TimeANSICFormat)
 }
 
+// Uses the `Format` method to compare the two values instead of the default
 func (t TimeANSIC) Equal(other formattable) bool {
 	return t.String() == other.Format(TimeANSICFormat)
 }
@@ -66,16 +69,18 @@ func (t TimeANSIC) Equal(other formattable) bool {
 const TimeUnixDateFormat = time.UnixDate // The format used for UnixDate
 
 // TimeUnixDate is a wrapper around time.Time that implements the sql.Scanner and driver.Valuer with the 
-// format `TimeUnixDateFormat`
+// format `TimeUnixDateFormat`. If the value is zero when `Value()` is called, it will use the current time
 type TimeUnixDate struct {
   time.Time
 }
 
+// Implements the `sql.Scanner` interface
 func (t *TimeUnixDate) Scan(src interface{}) (err error) {
 	t.Time, err = parseLayout(src, TimeUnixDateFormat)
 	return
 }
 
+// Implements the `driver.Valuer` interface
 func (t TimeUnixDate) Value() (driver.Value, error) {
 	return t.String(), nil
 }
@@ -84,6 +89,7 @@ func (t TimeUnixDate) String() string {
 	return t.Time.Format(TimeUnixDateFormat)
 }
 
+// Uses the `Format` method to compare the two values instead of the default
 func (t TimeUnixDate) Equal(other formattable) bool {
 	return t.String() == other.Format(TimeUnixDateFormat)
 }
@@ -92,16 +98,18 @@ func (t TimeUnixDate) Equal(other formattable) bool {
 const TimeRubyDateFormat = time.RubyDate // The format used for RubyDate
 
 // TimeRubyDate is a wrapper around time.Time that implements the sql.Scanner and driver.Valuer with the 
-// format `TimeRubyDateFormat`
+// format `TimeRubyDateFormat`. If the value is zero when `Value()` is called, it will use the current time
 type TimeRubyDate struct {
   time.Time
 }
 
+// Implements the `sql.Scanner` interface
 func (t *TimeRubyDate) Scan(src interface{}) (err error) {
 	t.Time, err = parseLayout(src, TimeRubyDateFormat)
 	return
 }
 
+// Implements the `driver.Valuer` interface
 func (t TimeRubyDate) Value() (driver.Value, error) {
 	return t.String(), nil
 }
@@ -110,6 +118,7 @@ func (t TimeRubyDate) String() string {
 	return t.Time.Format(TimeRubyDateFormat)
 }
 
+// Uses the `Format` method to compare the two values instead of the default
 func (t TimeRubyDate) Equal(other formattable) bool {
 	return t.String() == other.Format(TimeRubyDateFormat)
 }
@@ -118,16 +127,18 @@ func (t TimeRubyDate) Equal(other formattable) bool {
 const TimeRFC822Format = time.RFC822 // The format used for RFC822
 
 // TimeRFC822 is a wrapper around time.Time that implements the sql.Scanner and driver.Valuer with the 
-// format `TimeRFC822Format`
+// format `TimeRFC822Format`. If the value is zero when `Value()` is called, it will use the current time
 type TimeRFC822 struct {
   time.Time
 }
 
+// Implements the `sql.Scanner` interface
 func (t *TimeRFC822) Scan(src interface{}) (err error) {
 	t.Time, err = parseLayout(src, TimeRFC822Format)
 	return
 }
 
+// Implements the `driver.Valuer` interface
 func (t TimeRFC822) Value() (driver.Value, error) {
 	return t.String(), nil
 }
@@ -136,6 +147,7 @@ func (t TimeRFC822) String() string {
 	return t.Time.Format(TimeRFC822Format)
 }
 
+// Uses the `Format` method to compare the two values instead of the default
 func (t TimeRFC822) Equal(other formattable) bool {
 	return t.String() == other.Format(TimeRFC822Format)
 }
@@ -144,16 +156,18 @@ func (t TimeRFC822) Equal(other formattable) bool {
 const TimeRFC822ZFormat = time.RFC822Z // The format used for RFC822Z
 
 // TimeRFC822Z is a wrapper around time.Time that implements the sql.Scanner and driver.Valuer with the 
-// format `TimeRFC822ZFormat`
+// format `TimeRFC822ZFormat`. If the value is zero when `Value()` is called, it will use the current time
 type TimeRFC822Z struct {
   time.Time
 }
 
+// Implements the `sql.Scanner` interface
 func (t *TimeRFC822Z) Scan(src interface{}) (err error) {
 	t.Time, err = parseLayout(src, TimeRFC822ZFormat)
 	return
 }
 
+// Implements the `driver.Valuer` interface
 func (t TimeRFC822Z) Value() (driver.Value, error) {
 	return t.String(), nil
 }
@@ -162,6 +176,7 @@ func (t TimeRFC822Z) String() string {
 	return t.Time.Format(TimeRFC822ZFormat)
 }
 
+// Uses the `Format` method to compare the two values instead of the default
 func (t TimeRFC822Z) Equal(other formattable) bool {
 	return t.String() == other.Format(TimeRFC822ZFormat)
 }
@@ -170,16 +185,18 @@ func (t TimeRFC822Z) Equal(other formattable) bool {
 const TimeRFC850Format = time.RFC850 // The format used for RFC850
 
 // TimeRFC850 is a wrapper around time.Time that implements the sql.Scanner and driver.Valuer with the 
-// format `TimeRFC850Format`
+// format `TimeRFC850Format`. If the value is zero when `Value()` is called, it will use the current time
 type TimeRFC850 struct {
   time.Time
 }
 
+// Implements the `sql.Scanner` interface
 func (t *TimeRFC850) Scan(src interface{}) (err error) {
 	t.Time, err = parseLayout(src, TimeRFC850Format)
 	return
 }
 
+// Implements the `driver.Valuer` interface
 func (t TimeRFC850) Value() (driver.Value, error) {
 	return t.String(), nil
 }
@@ -188,6 +205,7 @@ func (t TimeRFC850) String() string {
 	return t.Time.Format(TimeRFC850Format)
 }
 
+// Uses the `Format` method to compare the two values instead of the default
 func (t TimeRFC850) Equal(other formattable) bool {
 	return t.String() == other.Format(TimeRFC850Format)
 }
@@ -196,16 +214,18 @@ func (t TimeRFC850) Equal(other formattable) bool {
 const TimeRFC1123Format = time.RFC1123 // The format used for RFC1123
 
 // TimeRFC1123 is a wrapper around time.Time that implements the sql.Scanner and driver.Valuer with the 
-// format `TimeRFC1123Format`
+// format `TimeRFC1123Format`. If the value is zero when `Value()` is called, it will use the current time
 type TimeRFC1123 struct {
   time.Time
 }
 
+// Implements the `sql.Scanner` interface
 func (t *TimeRFC1123) Scan(src interface{}) (err error) {
 	t.Time, err = parseLayout(src, TimeRFC1123Format)
 	return
 }
 
+// Implements the `driver.Valuer` interface
 func (t TimeRFC1123) Value() (driver.Value, error) {
 	return t.String(), nil
 }
@@ -214,6 +234,7 @@ func (t TimeRFC1123) String() string {
 	return t.Time.Format(TimeRFC1123Format)
 }
 
+// Uses the `Format` method to compare the two values instead of the default
 func (t TimeRFC1123) Equal(other formattable) bool {
 	return t.String() == other.Format(TimeRFC1123Format)
 }
@@ -222,16 +243,18 @@ func (t TimeRFC1123) Equal(other formattable) bool {
 const TimeRFC1123ZFormat = time.RFC1123Z // The format used for RFC1123Z
 
 // TimeRFC1123Z is a wrapper around time.Time that implements the sql.Scanner and driver.Valuer with the 
-// format `TimeRFC1123ZFormat`
+// format `TimeRFC1123ZFormat`. If the value is zero when `Value()` is called, it will use the current time
 type TimeRFC1123Z struct {
   time.Time
 }
 
+// Implements the `sql.Scanner` interface
 func (t *TimeRFC1123Z) Scan(src interface{}) (err error) {
 	t.Time, err = parseLayout(src, TimeRFC1123ZFormat)
 	return
 }
 
+// Implements the `driver.Valuer` interface
 func (t TimeRFC1123Z) Value() (driver.Value, error) {
 	return t.String(), nil
 }
@@ -240,6 +263,7 @@ func (t TimeRFC1123Z) String() string {
 	return t.Time.Format(TimeRFC1123ZFormat)
 }
 
+// Uses the `Format` method to compare the two values instead of the default
 func (t TimeRFC1123Z) Equal(other formattable) bool {
 	return t.String() == other.Format(TimeRFC1123ZFormat)
 }
@@ -248,16 +272,18 @@ func (t TimeRFC1123Z) Equal(other formattable) bool {
 const TimeRFC3339Format = time.RFC3339 // The format used for RFC3339
 
 // TimeRFC3339 is a wrapper around time.Time that implements the sql.Scanner and driver.Valuer with the 
-// format `TimeRFC3339Format`
+// format `TimeRFC3339Format`. If the value is zero when `Value()` is called, it will use the current time
 type TimeRFC3339 struct {
   time.Time
 }
 
+// Implements the `sql.Scanner` interface
 func (t *TimeRFC3339) Scan(src interface{}) (err error) {
 	t.Time, err = parseLayout(src, TimeRFC3339Format)
 	return
 }
 
+// Implements the `driver.Valuer` interface
 func (t TimeRFC3339) Value() (driver.Value, error) {
 	return t.String(), nil
 }
@@ -266,6 +292,7 @@ func (t TimeRFC3339) String() string {
 	return t.Time.Format(TimeRFC3339Format)
 }
 
+// Uses the `Format` method to compare the two values instead of the default
 func (t TimeRFC3339) Equal(other formattable) bool {
 	return t.String() == other.Format(TimeRFC3339Format)
 }
@@ -274,16 +301,18 @@ func (t TimeRFC3339) Equal(other formattable) bool {
 const TimeRFC3339NanoFormat = time.RFC3339Nano // The format used for RFC3339Nano
 
 // TimeRFC3339Nano is a wrapper around time.Time that implements the sql.Scanner and driver.Valuer with the 
-// format `TimeRFC3339NanoFormat`
+// format `TimeRFC3339NanoFormat`. If the value is zero when `Value()` is called, it will use the current time
 type TimeRFC3339Nano struct {
   time.Time
 }
 
+// Implements the `sql.Scanner` interface
 func (t *TimeRFC3339Nano) Scan(src interface{}) (err error) {
 	t.Time, err = parseLayout(src, TimeRFC3339NanoFormat)
 	return
 }
 
+// Implements the `driver.Valuer` interface
 func (t TimeRFC3339Nano) Value() (driver.Value, error) {
 	return t.String(), nil
 }
@@ -292,6 +321,7 @@ func (t TimeRFC3339Nano) String() string {
 	return t.Time.Format(TimeRFC3339NanoFormat)
 }
 
+// Uses the `Format` method to compare the two values instead of the default
 func (t TimeRFC3339Nano) Equal(other formattable) bool {
 	return t.String() == other.Format(TimeRFC3339NanoFormat)
 }
@@ -300,16 +330,18 @@ func (t TimeRFC3339Nano) Equal(other formattable) bool {
 const TimeKitchenFormat = time.Kitchen // The format used for Kitchen
 
 // TimeKitchen is a wrapper around time.Time that implements the sql.Scanner and driver.Valuer with the 
-// format `TimeKitchenFormat`
+// format `TimeKitchenFormat`. If the value is zero when `Value()` is called, it will use the current time
 type TimeKitchen struct {
   time.Time
 }
 
+// Implements the `sql.Scanner` interface
 func (t *TimeKitchen) Scan(src interface{}) (err error) {
 	t.Time, err = parseLayout(src, TimeKitchenFormat)
 	return
 }
 
+// Implements the `driver.Valuer` interface
 func (t TimeKitchen) Value() (driver.Value, error) {
 	return t.String(), nil
 }
@@ -318,6 +350,7 @@ func (t TimeKitchen) String() string {
 	return t.Time.Format(TimeKitchenFormat)
 }
 
+// Uses the `Format` method to compare the two values instead of the default
 func (t TimeKitchen) Equal(other formattable) bool {
 	return t.String() == other.Format(TimeKitchenFormat)
 }
@@ -326,16 +359,18 @@ func (t TimeKitchen) Equal(other formattable) bool {
 const TimeStampFormat = time.Stamp // The format used for Stamp
 
 // TimeStamp is a wrapper around time.Time that implements the sql.Scanner and driver.Valuer with the 
-// format `TimeStampFormat`
+// format `TimeStampFormat`. If the value is zero when `Value()` is called, it will use the current time
 type TimeStamp struct {
   time.Time
 }
 
+// Implements the `sql.Scanner` interface
 func (t *TimeStamp) Scan(src interface{}) (err error) {
 	t.Time, err = parseLayout(src, TimeStampFormat)
 	return
 }
 
+// Implements the `driver.Valuer` interface
 func (t TimeStamp) Value() (driver.Value, error) {
 	return t.String(), nil
 }
@@ -344,6 +379,7 @@ func (t TimeStamp) String() string {
 	return t.Time.Format(TimeStampFormat)
 }
 
+// Uses the `Format` method to compare the two values instead of the default
 func (t TimeStamp) Equal(other formattable) bool {
 	return t.String() == other.Format(TimeStampFormat)
 }
@@ -352,16 +388,18 @@ func (t TimeStamp) Equal(other formattable) bool {
 const TimeStampMilliFormat = time.StampMilli // The format used for StampMilli
 
 // TimeStampMilli is a wrapper around time.Time that implements the sql.Scanner and driver.Valuer with the 
-// format `TimeStampMilliFormat`
+// format `TimeStampMilliFormat`. If the value is zero when `Value()` is called, it will use the current time
 type TimeStampMilli struct {
   time.Time
 }
 
+// Implements the `sql.Scanner` interface
 func (t *TimeStampMilli) Scan(src interface{}) (err error) {
 	t.Time, err = parseLayout(src, TimeStampMilliFormat)
 	return
 }
 
+// Implements the `driver.Valuer` interface
 func (t TimeStampMilli) Value() (driver.Value, error) {
 	return t.String(), nil
 }
@@ -370,6 +408,7 @@ func (t TimeStampMilli) String() string {
 	return t.Time.Format(TimeStampMilliFormat)
 }
 
+// Uses the `Format` method to compare the two values instead of the default
 func (t TimeStampMilli) Equal(other formattable) bool {
 	return t.String() == other.Format(TimeStampMilliFormat)
 }
@@ -378,16 +417,18 @@ func (t TimeStampMilli) Equal(other formattable) bool {
 const TimeStampMicroFormat = time.StampMicro // The format used for StampMicro
 
 // TimeStampMicro is a wrapper around time.Time that implements the sql.Scanner and driver.Valuer with the 
-// format `TimeStampMicroFormat`
+// format `TimeStampMicroFormat`. If the value is zero when `Value()` is called, it will use the current time
 type TimeStampMicro struct {
   time.Time
 }
 
+// Implements the `sql.Scanner` interface
 func (t *TimeStampMicro) Scan(src interface{}) (err error) {
 	t.Time, err = parseLayout(src, TimeStampMicroFormat)
 	return
 }
 
+// Implements the `driver.Valuer` interface
 func (t TimeStampMicro) Value() (driver.Value, error) {
 	return t.String(), nil
 }
@@ -396,6 +437,7 @@ func (t TimeStampMicro) String() string {
 	return t.Time.Format(TimeStampMicroFormat)
 }
 
+// Uses the `Format` method to compare the two values instead of the default
 func (t TimeStampMicro) Equal(other formattable) bool {
 	return t.String() == other.Format(TimeStampMicroFormat)
 }
@@ -404,16 +446,18 @@ func (t TimeStampMicro) Equal(other formattable) bool {
 const TimeStampNanoFormat = time.StampNano // The format used for StampNano
 
 // TimeStampNano is a wrapper around time.Time that implements the sql.Scanner and driver.Valuer with the 
-// format `TimeStampNanoFormat`
+// format `TimeStampNanoFormat`. If the value is zero when `Value()` is called, it will use the current time
 type TimeStampNano struct {
   time.Time
 }
 
+// Implements the `sql.Scanner` interface
 func (t *TimeStampNano) Scan(src interface{}) (err error) {
 	t.Time, err = parseLayout(src, TimeStampNanoFormat)
 	return
 }
 
+// Implements the `driver.Valuer` interface
 func (t TimeStampNano) Value() (driver.Value, error) {
 	return t.String(), nil
 }
@@ -422,6 +466,7 @@ func (t TimeStampNano) String() string {
 	return t.Time.Format(TimeStampNanoFormat)
 }
 
+// Uses the `Format` method to compare the two values instead of the default
 func (t TimeStampNano) Equal(other formattable) bool {
 	return t.String() == other.Format(TimeStampNanoFormat)
 }
@@ -430,16 +475,18 @@ func (t TimeStampNano) Equal(other formattable) bool {
 const TimeDateTimeFormat = "2006-01-02 15:04:05" // The format used for DateTime
 
 // TimeDateTime is a wrapper around time.Time that implements the sql.Scanner and driver.Valuer with the 
-// format `TimeDateTimeFormat`
+// format `TimeDateTimeFormat`. If the value is zero when `Value()` is called, it will use the current time
 type TimeDateTime struct {
   time.Time
 }
 
+// Implements the `sql.Scanner` interface
 func (t *TimeDateTime) Scan(src interface{}) (err error) {
 	t.Time, err = parseLayout(src, TimeDateTimeFormat)
 	return
 }
 
+// Implements the `driver.Valuer` interface
 func (t TimeDateTime) Value() (driver.Value, error) {
 	return t.String(), nil
 }
@@ -448,6 +495,7 @@ func (t TimeDateTime) String() string {
 	return t.Time.Format(TimeDateTimeFormat)
 }
 
+// Uses the `Format` method to compare the two values instead of the default
 func (t TimeDateTime) Equal(other formattable) bool {
 	return t.String() == other.Format(TimeDateTimeFormat)
 }
@@ -456,16 +504,18 @@ func (t TimeDateTime) Equal(other formattable) bool {
 const TimeDateOnlyFormat = "2006-01-02" // The format used for DateOnly
 
 // TimeDateOnly is a wrapper around time.Time that implements the sql.Scanner and driver.Valuer with the 
-// format `TimeDateOnlyFormat`
+// format `TimeDateOnlyFormat`. If the value is zero when `Value()` is called, it will use the current time
 type TimeDateOnly struct {
   time.Time
 }
 
+// Implements the `sql.Scanner` interface
 func (t *TimeDateOnly) Scan(src interface{}) (err error) {
 	t.Time, err = parseLayout(src, TimeDateOnlyFormat)
 	return
 }
 
+// Implements the `driver.Valuer` interface
 func (t TimeDateOnly) Value() (driver.Value, error) {
 	return t.String(), nil
 }
@@ -474,6 +524,7 @@ func (t TimeDateOnly) String() string {
 	return t.Time.Format(TimeDateOnlyFormat)
 }
 
+// Uses the `Format` method to compare the two values instead of the default
 func (t TimeDateOnly) Equal(other formattable) bool {
 	return t.String() == other.Format(TimeDateOnlyFormat)
 }
@@ -482,16 +533,18 @@ func (t TimeDateOnly) Equal(other formattable) bool {
 const TimeTimeOnlyFormat = "15:04:05" // The format used for TimeOnly
 
 // TimeTimeOnly is a wrapper around time.Time that implements the sql.Scanner and driver.Valuer with the 
-// format `TimeTimeOnlyFormat`
+// format `TimeTimeOnlyFormat`. If the value is zero when `Value()` is called, it will use the current time
 type TimeTimeOnly struct {
   time.Time
 }
 
+// Implements the `sql.Scanner` interface
 func (t *TimeTimeOnly) Scan(src interface{}) (err error) {
 	t.Time, err = parseLayout(src, TimeTimeOnlyFormat)
 	return
 }
 
+// Implements the `driver.Valuer` interface
 func (t TimeTimeOnly) Value() (driver.Value, error) {
 	return t.String(), nil
 }
@@ -500,6 +553,7 @@ func (t TimeTimeOnly) String() string {
 	return t.Time.Format(TimeTimeOnlyFormat)
 }
 
+// Uses the `Format` method to compare the two values instead of the default
 func (t TimeTimeOnly) Equal(other formattable) bool {
 	return t.String() == other.Format(TimeTimeOnlyFormat)
 }

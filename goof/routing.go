@@ -115,12 +115,11 @@ func Json[Req any, Res any](pattern string, handler PipelineHandler[Req, Res]) *
 			pattern: pattern,
 			handler: func(c *gin.Context) {
 				var payload Req
-				if err := c.ShouldBindJSON(&payload); err != nil {
+				if err := c.BindJSON(&payload); err != nil {
 					c.Error(fmt.Errorf("invalid request: %+v", payload))
-					c.AbortWithError(http.StatusBadRequest, err)
 					return
 				}
-				// TODO: add validation logic
+
 				response, status, err := handler(c, payload)
 				if err != nil {
 					if status == 0 {
@@ -170,11 +169,21 @@ func FromJson[Req any](pattern string, handler RequestHandler[Req]) *routeBuilde
 			pattern: pattern,
 			handler: func(c *gin.Context) {
 				var payload Req
-				if err := c.ShouldBindJSON(&payload); err != nil {
+				if err := c.BindJSON(&payload); err != nil {
 					c.Error(fmt.Errorf("invalid request: %+v", payload))
-					c.AbortWithError(http.StatusBadRequest, err)
 					return
 				}
+
+				// Struct level validation
+				// errs := validate.Struct(payload)
+				// if len(errs) > 0 {
+				// 	c.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid request: %+v", payload))
+				// 	for _, err := range errs {
+				// 		c.Error(err)
+				// 	}
+				// 	return
+				// }
+
 				status, err := handler(c, payload)
 				if err != nil {
 					if status == 0 {

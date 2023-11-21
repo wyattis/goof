@@ -39,16 +39,18 @@ type formattable interface {
 const Time{{.Name}}Format = {{.Format}} // The format used for {{.Name}}
 
 // Time{{.Name}} is a wrapper around time.Time that implements the sql.Scanner and driver.Valuer with the 
-// format `Time{{.Name}}Format`
+// format `Time{{.Name}}Format`. If the value is zero when `Value()` is called, it will use the current time
 type Time{{.Name}} struct {
   time.Time
 }
 
+// Implements the `sql.Scanner` interface
 func (t *Time{{.Name}}) Scan(src interface{}) (err error) {
 	t.Time, err = parseLayout(src, Time{{.Name}}Format)
 	return
 }
 
+// Implements the `driver.Valuer` interface
 func (t Time{{.Name}}) Value() (driver.Value, error) {
 	return t.String(), nil
 }
@@ -57,6 +59,7 @@ func (t Time{{.Name}}) String() string {
 	return t.Time.Format(Time{{.Name}}Format)
 }
 
+// Uses the `Format` method to compare the two values instead of the default
 func (t Time{{.Name}}) Equal(other formattable) bool {
 	return t.String() == other.Format(Time{{.Name}}Format)
 }
