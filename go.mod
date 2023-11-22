@@ -2,8 +2,6 @@ module github.com/wyattis/goof
 
 go 1.19
 
-replace "github.com/wyattis/z" => "../z"
-
 require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/google/uuid v1.4.0
@@ -11,14 +9,10 @@ require (
 	github.com/jmoiron/sqlx v1.3.4
 	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/rs/zerolog v1.31.0
-	github.com/wyattis/z v0.10.19
-	gorm.io/driver/sqlite v1.5.4
-	gorm.io/gorm v1.25.5
+	github.com/wyattis/z v0.11.0
 )
 
 require (
-	github.com/jinzhu/inflection v1.0.0 // indirect
-	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 )
