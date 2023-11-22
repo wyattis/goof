@@ -1,13 +1,13 @@
-package sql
+package gsql
 
 import (
 	"database/sql"
 	"fmt"
 
-	"github.com/wyattis/goof/sql/driver"
-	_ "github.com/wyattis/goof/sql/drivers/mysql"
-	_ "github.com/wyattis/goof/sql/drivers/postgres"
-	_ "github.com/wyattis/goof/sql/drivers/sqlite3"
+	"github.com/wyattis/goof/gsql/driver"
+	_ "github.com/wyattis/goof/gsql/drivers/mysql"
+	_ "github.com/wyattis/goof/gsql/drivers/postgres"
+	_ "github.com/wyattis/goof/gsql/drivers/sqlite3"
 )
 
 var (
@@ -17,7 +17,7 @@ var (
 )
 
 func Open(config driver.Config) (db *sql.DB, err error) {
-	connector, ok := driver.Connectors[config.DriverName]
+	connector, ok := driver.Connectors[config.Driver]
 	if !ok {
 		return nil, ErrDriverNotInBuild
 	}

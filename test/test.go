@@ -4,8 +4,8 @@ import (
 	"net/http/httptest"
 
 	"github.com/wyattis/goof/goof"
+	"github.com/wyattis/goof/gsql/driver"
 	"github.com/wyattis/goof/log"
-	"github.com/wyattis/goof/sql/driver"
 )
 
 func TestSqliteGinModule(modules ...goof.Module) (s *httptest.Server, err error) {
@@ -15,8 +15,8 @@ func TestSqliteGinModule(modules ...goof.Module) (s *httptest.Server, err error)
 			Level: "debug",
 		},
 		DB: driver.Config{
-			DriverName: driver.TypeSqlite3,
-			Database:   ":memory:",
+			Driver:   driver.TypeSqlite3,
+			Database: ":memory:",
 		},
 	}, modules...)
 }

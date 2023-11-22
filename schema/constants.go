@@ -1,6 +1,6 @@
 package schema
 
-import "github.com/wyattis/goof/sql/driver"
+import "github.com/wyattis/goof/gsql/driver"
 
 type Constant interface {
 	Constant(driver driver.Type) string

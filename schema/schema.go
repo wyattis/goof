@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/wyattis/goof/sql/driver"
+	"github.com/wyattis/goof/gsql/driver"
 )
 
 type Printfer interface {

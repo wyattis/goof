@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/wyattis/goof/sql/driver"
+	"github.com/wyattis/goof/gsql/driver"
 )
 
 type testStatement struct {

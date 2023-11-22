@@ -12,7 +12,7 @@ type Environment string
 
 type Config struct {
 	Environment Environment `default:"local"`
-	DriverName  Type        `default:"sqlite3"`
+	Driver      Type        `default:"sqlite3"`
 	SslMode     string      `default:"disable"`
 	Host        string      `default:"127.0.0.1"`
 	Port        string      `default:"5432"`

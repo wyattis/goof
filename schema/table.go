@@ -8,7 +8,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/wyattis/goof/sql/driver"
+	"github.com/wyattis/goof/gsql/driver"
 )
 
 type TableDef struct {

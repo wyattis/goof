@@ -1,18 +1,18 @@
 package goof
 
 import (
+	"database/sql"
 	"fmt"
 	"sort"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/sessions"
-	"github.com/jmoiron/sqlx"
 
+	"github.com/wyattis/goof/gsql"
+	"github.com/wyattis/goof/gsql/driver"
 	"github.com/wyattis/goof/http/middleware"
 	"github.com/wyattis/goof/log"
 	"github.com/wyattis/goof/migrate"
-	"github.com/wyattis/goof/sql"
-	"github.com/wyattis/goof/sql/driver"
 )
 
 type HttpConfig struct {
@@ -60,12 +60,12 @@ func (c *BaseController) MountHTTP(router gin.IRouter) (err error) {
 type ModuleApi interface {
 	AddController(controllers ...Controller)
 	AddMigration(migrations ...migrate.Migration)
-	GetDB() (*sqlx.DB, error)
+	GetDB() (*sql.DB, error)
 	GetSessionStore() (sessions.Store, error)
 }
 
 type ControllersModule interface {
-	Controllers(db *sqlx.DB) []Controller
+	Controllers(db *sql.DB) []Controller
 }
 
 type DependenciesModule interface {
@@ -109,7 +109,7 @@ type moduleDef struct {
 	controllers  []Controller
 	migrations   []migrate.Migration
 	dependsOn    []string
-	db           *sqlx.DB
+	db           *sql.DB
 }
 
 func (m *moduleDef) AddMigration(migrations ...migrate.Migration) {
@@ -127,7 +127,7 @@ func (m *moduleDef) GetSessionStore() (sessions.Store, error) {
 	return m.sessionStore, nil
 }
 
-func (m *moduleDef) GetDB() (db *sqlx.DB, err error) {
+func (m *moduleDef) GetDB() (db *sql.DB, err error) {
 	if m.db == nil {
 		err = fmt.Errorf("DB has not been initialized at %s", m.module.Id())
 		return
@@ -144,7 +144,7 @@ type RootModule struct {
 	hasInitialized bool
 	modules        []*moduleDef
 	middleware     []gin.HandlerFunc
-	db             *sqlx.DB
+	db             *sql.DB
 	sessionStore   sessions.Store
 }
 
@@ -318,13 +318,10 @@ func (r *RootModule) initControllers() (err error) {
 
 func (r *RootModule) initDatabase() (err error) {
 	log.Debug().Interface("config", r.Config.DB).Msg("opening database")
-	db, err := sql.Open(r.Config.DB)
+	r.db, err = gsql.Open(r.Config.DB)
 	if err != nil {
-		return fmt.Errorf("Failed to open database:\n %w", err)
+		err = fmt.Errorf("Failed to open database:\n %w", err)
 	}
-	r.db = sqlx.NewDb(db, r.Config.DB.DriverName.String())
-	err = r.db.Ping()
-	log.Debug().Err(err).Msg("pinged database")
 	return
 }
 
@@ -341,5 +338,5 @@ func (r *RootModule) runMigrations() (err error) {
 	}
 	targetVersion := version - 1
 	log.Debug().Msgf("running migrations up to version %d", targetVersion)
-	return migrate.MigrateUpTo(migrations, r.db.DB, r.Config.DB.DriverName, r.Config.DB.Database, targetVersion)
+	return migrate.MigrateUpTo(migrations, r.db, r.Config.DB.Driver, r.Config.DB.Database, targetVersion)
 }

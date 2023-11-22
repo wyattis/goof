@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/wyattis/goof/gsql/driver"
 	"github.com/wyattis/goof/schema"
-	"github.com/wyattis/goof/sql/driver"
 
 	_ "github.com/mattn/go-sqlite3"
 )

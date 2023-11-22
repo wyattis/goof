@@ -3,7 +3,7 @@ package migrate
 import (
 	"database/sql"
 
-	"github.com/wyattis/goof/sql/driver"
+	"github.com/wyattis/goof/gsql/driver"
 )
 
 var sqliteDbFile = ":memory:"

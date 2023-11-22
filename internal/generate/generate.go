@@ -45,10 +45,10 @@ func generateTime() (err error) {
 		return
 	}
 
-	if err = executeToFile(t, "gtime.go", data, "../gtime/gtime.go"); err != nil {
+	if err = executeToFile(t, "gtime.go", data, "../../gtime/gtime.go"); err != nil {
 		return
 	}
-	return executeToFile(t, "gtime_test.go", data, "../gtime/gtime_test.go")
+	return executeToFile(t, "gtime_test.go", data, "../../gtime/gtime_test.go")
 }
 
 func executeToFile(set *template.Template, templateName string, data interface{}, filename string) (err error) {

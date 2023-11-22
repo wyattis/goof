@@ -1,6 +1,6 @@
 package schema
 
-import "github.com/wyattis/goof/sql/driver"
+import "github.com/wyattis/goof/gsql/driver"
 
 type FkAction interface {
 	Action(driverType driver.Type) string

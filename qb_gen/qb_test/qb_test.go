@@ -1,4 +1,4 @@
-package test
+package qb_test
 
 import (
 	"testing"
@@ -96,6 +96,49 @@ var insertStatements = []testStatement{
 
 func TestInsertStatements(t *testing.T) {
 	for _, s := range insertStatements {
+		sql, params, err := s.query.ToSql()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if sql != s.sql {
+			t.Fatalf("Expected sql '%s', got '%s'", s.sql, sql)
+		}
+		if !cmp.DeepEqual(params, s.params) {
+			t.Fatalf("Expected params '%v', got '%v'", s.params, params)
+		}
+	}
+}
+
+var updateStatements = []testStatement{
+	{
+		query:  qb.Update.User.Start().SetName("Alice").Where.Id("=", 1),
+		sql:    "UPDATE user SET name = ? WHERE id = ?",
+		params: []any{"Alice", 1},
+	},
+	{
+		query:  qb.Update.User.Start().SetName("Alice").Where.Name("=", "Bob"),
+		sql:    "UPDATE user SET name = ? WHERE name = ?",
+		params: []any{"Alice", "Bob"},
+	},
+	{
+		query:  qb.Update.User.Start().Set(test_models.User{Id: 10, Name: "Alice"}),
+		sql:    "UPDATE user SET name = ? WHERE id = ?",
+		params: []any{"Alice", 10},
+	},
+	{
+		query:  qb.Update.User.Start().Set(test_models.User{Name: "Alice"}).Where.Id("=", 1),
+		sql:    "UPDATE user SET name = ? WHERE id = ?",
+		params: []any{"Alice", 1},
+	},
+	{
+		query:  qb.Update.User.Start().Set(test_models.User{Id: 1, Name: "Alice"}).Where.Id("=", 2),
+		sql:    "UPDATE user SET name = ? WHERE id = ?",
+		params: []any{"Alice", 2},
+	},
+}
+
+func TestUpdateStatements(t *testing.T) {
+	for _, s := range updateStatements {
 		sql, params, err := s.query.ToSql()
 		if err != nil {
 			t.Fatal(err)

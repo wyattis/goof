@@ -7,10 +7,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/wyattis/goof/sql/driver"
-	"github.com/wyattis/z/ztext/ztemplate"
-
-	_ "github.com/lib/pq"
+	"github.com/wyattis/goof/gsql/driver"
+	"github.com/wyattis/z/zhtml/ztemplate"
 )
 
 func init() {

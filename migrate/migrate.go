@@ -9,8 +9,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/wyattis/goof/gsql"
+	"github.com/wyattis/goof/gsql/driver"
 	"github.com/wyattis/goof/schema"
-	"github.com/wyattis/goof/sql/driver"
 )
 
 var logger schema.Printfer = log.New(io.Discard, "", 0)
@@ -41,7 +42,7 @@ func Add(migration Migration) {
 	Migrations = append(Migrations, migration)
 }
 
-func Begin(db *sql.DB, fn func(tx *sql.Tx) (err error)) (err error) {
+func Begin(db gsql.IBegin, fn func(tx *sql.Tx) (err error)) (err error) {
 	tx, err := db.Begin()
 	if err != nil {
 		return
@@ -66,7 +67,7 @@ func Begin(db *sql.DB, fn func(tx *sql.Tx) (err error)) (err error) {
 	return
 }
 
-func initializeSchema(db *sql.DB, driverType driver.Type, name string) (err error) {
+func initializeSchema(db gsql.IBegin, driverType driver.Type, name string) (err error) {
 	return Begin(db, func(tx *sql.Tx) (err error) {
 		s := schema.New(driverType, name)
 		s.CreateIfNotExists("schema_migrations", func(t *schema.Table) {
@@ -80,7 +81,7 @@ func initializeSchema(db *sql.DB, driverType driver.Type, name string) (err erro
 	})
 }
 
-func currentVersion(db *sql.DB, driverType driver.Type, name string) (version uint, err error) {
+func currentVersion(db gsql.IDB, driverType driver.Type, name string) (version uint, err error) {
 	if err = initializeSchema(db, driverType, name); err != nil {
 		return
 	}
@@ -103,13 +104,13 @@ func hasMatchingVersion(migrations []Migration, version uint) bool {
 	return hasMatchingVersion
 }
 
-func databaseIsClean(db *sql.DB) bool {
+func databaseIsClean(db gsql.IQueryRow) bool {
 	var count int
 	err := db.QueryRow("SELECT count(*) FROM `schema_migrations` where dirty").Scan(&count)
 	return count == 0 && (err == nil || strings.Contains(err.Error(), "no such table"))
 }
 
-func validateMigration(migrations []Migration, db *sql.DB, driver driver.Type, name string, version uint) (schemaVersion uint, err error) {
+func validateMigration(migrations []Migration, db gsql.IDB, driver driver.Type, name string, version uint) (schemaVersion uint, err error) {
 	sort.Slice(Migrations, func(i, j int) bool {
 		return Migrations[i].Version < Migrations[j].Version
 	})
@@ -124,7 +125,7 @@ func validateMigration(migrations []Migration, db *sql.DB, driver driver.Type, n
 	return currentVersion(db, driver, name)
 }
 
-func MigrateUpTo(migrations []Migration, db *sql.DB, driver driver.Type, name string, version uint) (err error) {
+func MigrateUpTo(migrations []Migration, db gsql.IDB, driver driver.Type, name string, version uint) (err error) {
 	schemaVersion, err := validateMigration(migrations, db, driver, name, version)
 	if err != nil {
 		return

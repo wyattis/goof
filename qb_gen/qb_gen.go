@@ -2,35 +2,64 @@ package qb_gen
 
 import (
 	"bytes"
-	_ "embed"
+	"embed"
 	"fmt"
 	"io"
 	"os"
 	"path"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"text/template"
 
 	"github.com/wyattis/z/zos"
+	"github.com/wyattis/z/zset"
 	"github.com/wyattis/z/zset/zstringset"
 	"github.com/wyattis/z/zstring"
 )
 
-//go:embed template.go.tpl
-var genTemplate string
+//go:embed templates/*.go.tpl
+var templates embed.FS
 
 type Config struct {
-	structs  []any
-	Models   []Model
-	Package  string
-	RootPath string
-	Imports  []string
+	QueryBuilders      []any
+	Crud               []any
+	QueryBuilderModels []Model
+	CrudModels         []Model
+	Package            string
+	RootPath           string
+	Imports            []Import
+}
+
+type QbConfig struct {
+	Models  []Model
+	Imports []Import
+}
+
+type CrudConfig struct {
+	Models  []Model
+	Imports []Import
+}
+
+type ExecConfig struct {
+	Package string
+	Imports []Import
+	Qb      QbConfig
+	Crud    CrudConfig
+}
+
+type Import struct {
+	Path  string
+	Alias string
 }
 
 type Field struct {
 	Name         string
 	ColName      string
+	IsPrimary    bool
+	Type         reflect.Type
+	TypeStr      string
 	ShouldScan   bool
 	ShouldInsert bool
 	ShouldUpdate bool
@@ -50,7 +79,7 @@ func (m Model) ScanFields(varName string) string {
 	names := []string{}
 	for _, field := range m.Fields {
 		if field.ShouldScan {
-			names = append(names, fmt.Sprintf("%s.%s", varName, field.Name))
+			names = append(names, fmt.Sprintf("&%s.%s", varName, field.Name))
 		}
 	}
 	return strings.Join(names, ", ")
@@ -60,14 +89,40 @@ func (m Model) ModelName() string {
 	return fmt.Sprintf("%s.%s", m.PackageName, m.Name)
 }
 
-func Generate(config Config, structs ...any) (err error) {
+func (m Model) PrimaryKeys() (res []Field) {
+	for _, field := range m.Fields {
+		if field.IsPrimary {
+			res = append(res, field)
+		}
+	}
+	return
+}
+
+func (m Model) PrimaryField() (res Field) {
+	primary := m.PrimaryKeys()
+	if len(primary) > 1 {
+		panic(fmt.Sprintf("model %s has more than one primary key", m.Name))
+	}
+	return primary[0]
+}
+
+func (m Model) UpdateFields() (res []Field) {
+	for _, field := range m.Fields {
+		if field.ShouldUpdate {
+			res = append(res, field)
+		}
+	}
+	return
+}
+
+func Generate(config Config) (err error) {
 	if config.RootPath == "" {
 		config.RootPath = "./"
 	}
 	config.Package = "qb"
 	config.RootPath = filepath.Join(config.RootPath, config.Package)
-	config.structs = append(config.structs, structs...)
-	if len(config.structs) == 0 && len(config.Models) == 0 {
+
+	if len(config.QueryBuilders) == 0 && len(config.Crud) == 0 && len(config.QueryBuilderModels) == 0 && len(config.CrudModels) == 0 {
 		return fmt.Errorf("no structs or models specified")
 	}
 
@@ -93,30 +148,105 @@ func Generate(config Config, structs ...any) (err error) {
 	return os.WriteFile(path, output.Bytes(), 0644)
 }
 
-func generateInto(config Config, w io.Writer) (err error) {
-	t, err := template.New("").Parse(genTemplate)
-	if err != nil {
-		return
-	}
-
-	models, err := structsToModels(config.structs)
-	if err != nil {
-		return
-	}
-	config.Models = append(config.Models, models...)
-
-	imports := zstringset.New()
-	for _, m := range config.Models {
-		if m.PackagePath != "" {
-			imports.Add(m.PackagePath)
-		}
-	}
-	config.Imports = imports.Items()
-
-	return t.ExecuteTemplate(w, "qb", config)
+type IIsZero interface {
+	IsZero() bool
 }
 
-func structsToModels(structs []any) (models []Model, err error) {
+var funcMap = template.FuncMap{
+	"checkNonZero": func(t reflect.Type, prefix, varName string) (res string) {
+		name := fmt.Sprintf("%s%s", prefix, varName)
+		switch t.Kind() {
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			res = fmt.Sprintf("%s != 0", name)
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			res = fmt.Sprintf("%s != 0", name)
+		case reflect.Float32, reflect.Float64:
+			res = fmt.Sprintf("%s != 0", name)
+		case reflect.String:
+			res = fmt.Sprintf("%s != \"\"", name)
+		case reflect.Bool:
+			res = fmt.Sprintf("%s", name)
+		case reflect.Ptr:
+			res = fmt.Sprintf("%s != nil", name)
+		default:
+			// if implement IIsZero, use it
+			if reflect.PtrTo(t).Implements(reflect.TypeOf((*IIsZero)(nil)).Elem()) {
+				res = fmt.Sprintf("!%s.IsZero()", name)
+			} else {
+				panic(fmt.Sprintf("unsupported type %s", t))
+			}
+		}
+		return
+	},
+}
+
+func generateInto(config Config, w io.Writer) (err error) {
+	t, err := template.New("").Funcs(funcMap).ParseFS(templates, "templates/*.go.tpl")
+	if err != nil {
+		return
+	}
+
+	c := ExecConfig{
+		Package: config.Package,
+		Imports: []Import{
+			{"context", ""},
+			{"database/sql", ""},
+			{"errors", ""},
+			{"fmt", ""},
+			{"strings", ""},
+		},
+	}
+
+	c.Qb.Models = config.QueryBuilderModels
+	c.Crud.Models = config.CrudModels
+
+	qbModels, qbImports := structsToModels(config.QueryBuilders)
+	crudModels, crudImports := structsToModels(config.Crud)
+	c.Qb.Models = qbModels
+	c.Crud.Models = crudModels
+
+	for _, i := range append(qbImports, crudImports...) {
+		c.Imports = append(c.Imports, Import{Path: i})
+	}
+
+	// Remove duplicates using a hash set
+	imports := zset.NewHashSet(func(i Import) string {
+		return i.Alias + i.Path
+	}, c.Imports...)
+	c.Imports = imports.Items()
+
+	hasCrud := len(c.Crud.Models) > 0
+	hasQb := len(c.Qb.Models) > 0
+
+	if hasCrud {
+		c.Imports = append(c.Imports, Import{Path: "github.com/wyattis/goof/gsql"})
+	}
+
+	sort.Slice(c.Imports, func(i, j int) bool {
+		return c.Imports[i].Path < c.Imports[j].Path
+	})
+
+	if err = t.ExecuteTemplate(w, "package", c); err != nil {
+		return
+	}
+
+	if hasQb {
+		if err = t.ExecuteTemplate(w, "qb", c.Qb); err != nil {
+			return
+		}
+	}
+
+	if hasCrud {
+		if err = t.ExecuteTemplate(w, "crud", c.Crud); err != nil {
+			return
+		}
+	}
+
+	return
+}
+
+func structsToModels(structs []any) (models []Model, imports []string) {
+	importSet := zstringset.New()
 	// Extract fields from structs using reflection
 	for _, s := range structs {
 		t := reflect.TypeOf(s)
@@ -132,17 +262,27 @@ func structsToModels(structs []any) (models []Model, err error) {
 			TableName:   zstring.CamelToSnake(t.Name(), "_", 2),
 			Name:        t.Name(),
 		}
+		if model.PackagePath != "" {
+			importSet.Add(model.PackagePath)
+		}
 		for i := 0; i < t.NumField(); i++ {
 			field := t.Field(i)
 			model.Fields = append(model.Fields, Field{
 				Name:         field.Name,
 				ColName:      zstring.CamelToSnake(field.Name, "_", 2),
+				Type:         field.Type,
+				TypeStr:      field.Type.String(),
 				ShouldScan:   true,
+				IsPrimary:    strings.ToLower(field.Name) == "id",
 				ShouldInsert: strings.ToLower(field.Name) != "id",
 				ShouldUpdate: strings.ToLower(field.Name) != "id",
 			})
+			if field.Type.PkgPath() != "" {
+				importSet.Add(field.Type.PkgPath())
+			}
 		}
 		models = append(models, model)
 	}
+	imports = importSet.Items()
 	return
 }
