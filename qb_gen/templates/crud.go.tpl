@@ -17,7 +17,7 @@ func (c {{.BuilderName}}Crud) URI() any {
   return Uri{{.Name}}Crud{}
 }
 
-func (c {{ .BuilderName }}Crud) Create(ctx context.Context, db gsql.IExecContext, m *{{ .ModelName }}) (err error) {
+func (c {{ .BuilderName }}Crud) Create(ctx context.Context, db gsql.IExecQueryRowContext, m *{{ .ModelName }}) (err error) {
   res, err := Insert.
     Into{{ .Name }}.
     Values(*m).
@@ -30,7 +30,7 @@ func (c {{ .BuilderName }}Crud) Create(ctx context.Context, db gsql.IExecContext
     return err
   }
   // TODO: How should we handle multiple primary keys
-  m.Id = {{.PrimaryField.TypeStr}}(id)
+  err = Select.From{{ .Name }}.Where().Id("=", {{.PrimaryField.TypeStr}}(id)).GetScanContext(ctx, db, m)
   return
 }
 
@@ -46,7 +46,7 @@ func (c {{ .BuilderName }}Crud) Get(ctx context.Context, db gsql.IQueryRowContex
   return
 }
 
-func (c {{ .BuilderName }}Crud) GetPage(ctx context.Context, db gsql.IQueryContext, page, size int64, orderBy string, desc bool) (list []{{ .ModelName }}, err error) {
+func (c {{ .BuilderName }}Crud) GetPage(ctx context.Context, db gsql.IQueryContext, page, size int, orderBy string, desc bool) (list []{{ .ModelName }}, err error) {
   q := Select.
     From{{ .Name }}.
     Offset(int(page * size)).
@@ -109,7 +109,7 @@ func (c {{.BuilderName}}Crud) GetRoute(pattern string, db gsql.IQueryRowContext)
 }
 
 // Any pattern can be used with CreateRoute
-func (c {{.BuilderName}}Crud) CreateRoute(pattern string, db gsql.IExecContext) route.IRoute {
+func (c {{.BuilderName}}Crud) CreateRoute(pattern string, db gsql.IExecQueryRowContext) route.IRoute {
   return goof.Json[{{ .ModelName }}](pattern, func(ctx *gin.Context, payload {{ .ModelName }}) (res {{ .ModelName }}, status int, err error) {
     // TODO(future): How could we handle multiple primary keys
     payload.{{ .PrimaryField.Name }} = {{ .PrimaryField.TypeStr }}(0) 

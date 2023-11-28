@@ -5,6 +5,10 @@ import (
 	"database/sql"
 )
 
+type ISetDefault interface {
+	SetDefault() error
+}
+
 // SQL Database interfaces
 type ISelect interface {
 	Select(dest any, query string, params ...interface{}) error
@@ -38,6 +42,11 @@ type IExec interface {
 
 type IExecContext interface {
 	ExecContext(ctx context.Context, sql string, params ...interface{}) (sql.Result, error)
+}
+
+type IExecQueryRowContext interface {
+	IExecContext
+	IQueryRowContext
 }
 
 type INamedExec interface {

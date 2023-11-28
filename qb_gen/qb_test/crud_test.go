@@ -37,7 +37,7 @@ func TestCrudRoutes(t *testing.T) {
 	})
 	route_gin.Mount(router, routes)
 
-	expected := zset.New("GET /user/:id", "POST /user", "PUT /user/:id", "DELETE /user/:id", "GET /page/user")
+	expected := zset.New("GET /user/:id", "POST /user", "PUT /user/:id", "DELETE /user/:id", "GET /user")
 	registered := zset.New[string]()
 	for _, r := range router.Routes() {
 		registered.Add(r.Method + " " + r.Path)

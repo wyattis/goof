@@ -10,7 +10,7 @@ import (
 
 type PageQuery struct {
 	Page    int    `form:"page" binding:"min=0"`
-	Size    int    `form:"size" binding:"min=5,max=100"`
+	Size    int    `form:"size" binding:"min=0,max=100"`
 	OrderBy string `form:"orderBy"`
 	Desc    bool   `form:"desc"`
 }

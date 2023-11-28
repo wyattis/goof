@@ -12,9 +12,9 @@ import (
 )
 
 type CRUD[T any] interface {
-	Create(ctx context.Context, db gsql.IExecContext, v *T) (err error)
+	Create(ctx context.Context, db gsql.IExecQueryRowContext, v *T) (err error)
 	Get(ctx context.Context, db gsql.IQueryRowContext, id int64) (v *T, err error)
-	GetPage(ctx context.Context, db gsql.IQueryContext, page, pageSize int64, orderBy string, desc bool) (v []T, err error)
+	GetPage(ctx context.Context, db gsql.IQueryContext, page, pageSize int, orderBy string, desc bool) (v []T, err error)
 	Update(ctx context.Context, db gsql.IExecContext, id int64, v *T) (err error)
 	Delete(ctx context.Context, db gsql.IExecContext, id int64) (err error)
 }
@@ -47,13 +47,6 @@ type Config struct {
 
 type idUri struct {
 	Id int64 `uri:"id" binding:"required"`
-}
-
-type pageQuery struct {
-	Page    int64  `form:"page"`
-	Size    int64  `form:"size"`
-	OrderBy string `form:"orderBy"`
-	Desc    bool   `form:"desc"`
 }
 
 // Create a set of routes for the given crud interface
@@ -151,7 +144,7 @@ func Get[T any](pattern string, db gsql.IDBContext, crud CRUD[T]) route.IRoute {
 
 func Page[T any](pattern string, db gsql.IDBContext, crud CRUD[T]) route.IRoute {
 	return goof.ToJson(pattern, func(c *gin.Context) (res []T, status int, err error) {
-		var query pageQuery
+		var query goof.PageQuery
 		if err := c.ShouldBindQuery(&query); err != nil {
 			return res, http.StatusBadRequest, err
 		}

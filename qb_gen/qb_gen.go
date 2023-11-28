@@ -2,6 +2,7 @@ package qb_gen
 
 import (
 	"bytes"
+	"database/sql/driver"
 	"embed"
 	"fmt"
 	"io"
@@ -57,16 +58,17 @@ type Import struct {
 }
 
 type Field struct {
-	Name             string
-	UriName          string
-	ColName          string
-	IsPrimary        bool
-	Type             reflect.Type
-	TypeStr          string
-	ShouldScan       bool
-	ShouldInsert     bool
-	ShouldUpdate     bool
-	HasDefaultSetter bool
+	Name           string
+	UriName        string
+	ColName        string
+	IsPrimary      bool
+	Type           reflect.Type
+	TypeStr        string
+	ShouldScan     bool
+	ShouldInsert   bool
+	ShouldUpdate   bool
+	IsPointer      bool
+	IsDriverValuer bool
 }
 
 type Model struct {
@@ -117,15 +119,6 @@ func (m Model) UpdateFields() (res []Field) {
 		}
 	}
 	return
-}
-
-func (m Model) HasDefaultSetters() bool {
-	for _, field := range m.Fields {
-		if field.HasDefaultSetter {
-			return true
-		}
-	}
-	return false
 }
 
 func (m Model) UriName() string {
@@ -299,16 +292,17 @@ func structsToModels(structs []any) (models []Model, imports []string) {
 		for i := 0; i < t.NumField(); i++ {
 			field := t.Field(i)
 			model.Fields = append(model.Fields, Field{
-				Name:             field.Name,
-				ColName:          zstring.CamelToSnake(field.Name, "_", 2),
-				UriName:          zstring.CamelToSnake(model.Name+field.Name, "_", 2),
-				Type:             field.Type,
-				TypeStr:          field.Type.String(),
-				ShouldScan:       true,
-				IsPrimary:        strings.ToLower(field.Name) == "id",
-				ShouldInsert:     strings.ToLower(field.Name) != "id",
-				ShouldUpdate:     strings.ToLower(field.Name) != "id",
-				HasDefaultSetter: defaultSetters.Contains(field.Name),
+				Name:           field.Name,
+				ColName:        zstring.CamelToSnake(field.Name, "_", 1),
+				UriName:        zstring.CamelToSnake(model.Name+field.Name, "_", 1),
+				Type:           field.Type,
+				TypeStr:        field.Type.String(),
+				ShouldScan:     true,
+				IsPrimary:      strings.ToLower(field.Name) == "id",
+				ShouldInsert:   strings.ToLower(field.Name) != "id",
+				ShouldUpdate:   strings.ToLower(field.Name) != "id",
+				IsPointer:      field.Type.Kind() == reflect.Ptr,
+				IsDriverValuer: field.Type.Implements(reflect.TypeOf((*driver.Valuer)(nil)).Elem()),
 			})
 			if field.Type.PkgPath() != "" {
 				importSet.Add(field.Type.PkgPath())

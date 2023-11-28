@@ -73,7 +73,9 @@ var default{{ .Name }}UpdateFields = []string{
 
 func new{{ .BuilderName }}Update() *{{ .BuilderName }}Update {
   u := &{{ .BuilderName }}Update{ }
-  u.Where = &{{ .BuilderName }}UpdateWhere{ parent: u }
+  u.Where = &{{ .BuilderName }}UpdateWhere{ 
+    {{ .BuilderName }}Update: u,
+  }
   return u
 }
 
@@ -215,31 +217,36 @@ func (b *{{ .BuilderName }}Insert) Values(values ...{{ .ModelName }}) *{{ .Build
   return b
 }
 
-{{ if .HasDefaultSetters }}
 // set default values if there are setter fields
 func set{{ .Name }}Defaults (m *{{ .ModelName }}) (err error) {
   {{ range .Fields -}}
-  {{ if .HasDefaultSetter -}}
   if {{ isZero .Type "m." .Name }} {
-    if err = m.SetDefault{{ .Name }}(); err != nil {
-      return
+    // TODO(future): We could do this interface check at compile time
+    {{ if .IsPointer -}}
+    if d, ok := any(m.{{ .Name }}).(gsql.ISetDefault); ok {
+      if err = d.SetDefault(); err != nil {
+        return
+      }
     }
+    {{ else -}}
+    if d, ok := any(&m.{{ .Name }}).(gsql.ISetDefault); ok {
+      if err = d.SetDefault(); err != nil {
+        return
+      }
+    }
+    {{- end }}
   }
-  {{ end }}
-  {{- end }}
+  {{ end -}}
   return
 }
-{{ end }}
 
 // Insert a single model into the database.
 func (b {{ .BuilderName }}Insert) Exec(db gsql.IExec) (sql.Result, error) {
-  {{ if .HasDefaultSetters -}}
   for i := range b.values {
     if err := set{{ .Name }}Defaults(&b.values[i]); err != nil {
       return nil, err
     }
   }
-  {{- end }}
 
   sql, params, err := b.ToSql()
   if err != nil {
@@ -250,14 +257,12 @@ func (b {{ .BuilderName }}Insert) Exec(db gsql.IExec) (sql.Result, error) {
 
 // Same as Exec, but with a context.
 func (b {{ .BuilderName }}Insert) ExecContext(ctx context.Context, db gsql.IExecContext) (sql.Result, error) {
-  {{ if .HasDefaultSetters -}}
   for i := range b.values {
     if err := set{{ .Name }}Defaults(&b.values[i]); err != nil {
       return nil, err
     }
   }
-  {{- end }}
-  
+
   sql, params, err := b.ToSql()
   if err != nil {
     return nil, err
@@ -285,7 +290,9 @@ func (b {{ .BuilderName }}Insert) ToSql() (sql string, params []interface{}, err
     sql += valsStr
     params = append(params,
       {{ range .Fields -}}
-      {{ if .ShouldInsert }}v.{{ .Name }},{{ end }}
+      {{ if .ShouldInsert -}}
+        v.{{ .Name }},
+      {{ end -}}
       {{- end }}
     )
   }
@@ -334,8 +341,29 @@ type {{ .BuilderName }}SelectBuilder struct {
 
 func new{{ .BuilderName }}SelectBuilder() *{{ .BuilderName }}SelectBuilder {
   b := &{{ .BuilderName }}SelectBuilder{ }
-  b.Where = &{{ .BuilderName }}SelectWhere{ parent: b }
+  b.Where = &{{ .BuilderName }}SelectWhere{ 
+    {{ .BuilderName }}SelectBuilder: b,
+  }
   return b
+}
+
+// Select a page of results from the query. This will set the limit and offset based on the page number and page size.
+func (b *{{ .BuilderName }}SelectBuilder) Page(ctx context.Context, db gsql.IQueryContext, page goof.PageQuery) (results []{{.ModelName}}, err error) {
+  err = b.ScanPage(ctx, db, page, &results)
+  return
+}
+
+// Select a page of results from the query. This will set the limit and offset based on the page number and page size.
+func (b *{{ .BuilderName }}SelectBuilder) ScanPage(ctx context.Context, db gsql.IQueryContext, page goof.PageQuery, scanResults *[]{{.ModelName}}) (err error) {
+  q := b.Limit(page.Size).Offset(page.Page * page.Size)
+  if page.OrderBy != "" {
+    if page.Desc {
+      q = q.OrderByDesc(page.OrderBy)
+    } else {
+      q = q.OrderBy(page.OrderBy)
+    }
+  }
+  return q.ExecScanContext(ctx, db, scanResults)
 }
 
 // Define the columns to select with this query
@@ -512,8 +540,8 @@ func (b {{ .BuilderName }}SelectBuilder) ToSql() (sql string, params []interface
 
 {{ define "update-where" }}
 type {{ .BuilderName }}UpdateWhere struct {
+  *{{ .BuilderName }}Update
   expressions []expression
-  parent *{{ .BuilderName }}Update
 }
 
 {{ range .Fields }}
@@ -527,25 +555,13 @@ func (w *{{ $.BuilderName }}UpdateWhere) {{ .Name }}(expr string, params ...any)
 }
 {{ end }}
 
-func (w {{ $.BuilderName }}UpdateWhere) Exec(db gsql.IExec) (sql.Result, error) {
-  return w.parent.Exec(db)
-}
-
-func (w {{ $.BuilderName }}UpdateWhere) ExecContext(ctx context.Context, db gsql.IExecContext) (sql.Result, error) {
-  return w.parent.ExecContext(ctx, db)
-}
-
-func (w {{ $.BuilderName }}UpdateWhere) ToSql() (sql string, params []interface{}, err error) {
-  return w.parent.ToSql()
-}
-
 {{ end }}
 
 {{ define "select-where" }}
 
 type {{ .BuilderName }}SelectWhere struct {
+  *{{.BuilderName }}SelectBuilder
   expressions []expression
-  parent *{{ .BuilderName }}SelectBuilder
 }
 
 {{ range .Fields }}
@@ -558,66 +574,6 @@ func (w *{{ $.BuilderName }}SelectWhere) {{ .Name }}(expr string, params ...any)
   return w
 }
 {{ end }}
-
-func (w {{ .BuilderName }}SelectWhere) OrderBy(column string) *{{ .BuilderName }}SelectBuilder {
-  return w.parent.OrderBy(column)
-}
-
-func (w {{ .BuilderName }}SelectWhere) OrderByDesc(column string) *{{ .BuilderName }}SelectBuilder {
-  return w.parent.OrderByDesc(column)
-}
-
-func (w {{ .BuilderName }}SelectWhere) Limit(limit int) *{{ .BuilderName }}SelectBuilder {
-  return w.parent.Limit(limit)
-}
-
-func (w {{ .BuilderName }}SelectWhere) Offset(offset int) *{{ .BuilderName }}SelectBuilder {
-  return w.parent.Offset(offset)
-}
-
-func (w {{ .BuilderName }}SelectWhere) ToSql() (sql string, params []interface{}, err error) {
-  return w.parent.ToSql()
-}
-
-// Returns a single model matching the query. If the query returns multiple rows, only the first will be returned.
-func (w {{ .BuilderName }}SelectWhere) Get(db gsql.IQueryRow) (model *{{ .ModelName }}, err error) {
-  return w.parent.Get(db)
-}
-
-// Same as Get, but with a context.
-func (w {{ .BuilderName }}SelectWhere) GetContext(ctx context.Context, db gsql.IQueryRowContext) (model *{{ .ModelName }}, err error) {
-  return w.parent.GetContext(ctx, db)
-}
-
-// Same as Get, but scans the result into the provided model.
-func (w {{ .BuilderName }}SelectWhere) GetScan(db gsql.IQueryRow, model *{{ .ModelName }}) (err error) {
-  return w.parent.GetScan(db, model)
-}
-
-// Same as GetScan, but with a context.
-func (w {{ .BuilderName }}SelectWhere) GetScanContext(ctx context.Context, db gsql.IQueryRowContext, model *{{ .ModelName }}) (err error) {
-  return w.parent.GetScanContext(ctx, db, model)
-}
-
-// Execute the query and scan all of the rows
-func (w *{{ .BuilderName }}SelectWhere) Exec(db gsql.IQuery) (models []{{ .ModelName }}, err error) {
-  return w.parent.Exec(db)
-}
-
-// Same as Exec, but with a context.
-func (w *{{ .BuilderName }}SelectWhere) ExecContext(ctx context.Context, db gsql.IQueryContext) (models []{{ .ModelName }}, err error) {
-  return w.parent.ExecContext(ctx, db)
-}
-
-// Same as Exec, but scan the rows into the provided models. All results will be appended to the provided slice.
-func (w *{{ .BuilderName }}SelectWhere) ExecScan(db gsql.IQuery, scanResults *[]{{ .ModelName }}) (err error) {
-  return w.parent.ExecScan(db, scanResults)
-}
-
-// Same as ExecScan, but with a context
-func (w *{{ .BuilderName }}SelectWhere) ExecScanContext(ctx context.Context, db gsql.IQueryContext, scanDest *[]{{ .ModelName }}) (err error) {
-  return w.parent.ExecScanContext(ctx, db, scanDest)
-}
 
 {{ end }}
 

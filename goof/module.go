@@ -3,6 +3,7 @@ package goof
 import (
 	"database/sql"
 	"fmt"
+	"os"
 	"sort"
 
 	"github.com/gin-gonic/gin"
@@ -13,6 +14,8 @@ import (
 	"github.com/wyattis/goof/http/middleware"
 	"github.com/wyattis/goof/log"
 	"github.com/wyattis/goof/migrate"
+	"github.com/wyattis/goof/route"
+	"github.com/wyattis/goof/route/route_gin"
 )
 
 type HttpConfig struct {
@@ -44,7 +47,8 @@ type ControllerConfig struct {
 
 type Controller interface {
 	Init(config ControllerConfig) (err error)
-	MountHTTP(router gin.IRouter) (err error)
+	Routes() []route.IRoute
+	// MountHTTP(router gin.IRouter) (err error)
 }
 
 type BaseController struct{}
@@ -53,7 +57,7 @@ func (c *BaseController) Init(config ControllerConfig) (err error) {
 	return
 }
 
-func (c *BaseController) MountHTTP(router gin.IRouter) (err error) {
+func (c *BaseController) Routes() (routes []route.IRoute) {
 	return
 }
 
@@ -289,9 +293,16 @@ func (r *RootModule) resolveModuleDependencies() (err error) {
 }
 
 func (r *RootModule) printRoutes() {
-	for _, r := range r.engine.Routes() {
-		log.Debug().Msgf("%s %s -> %v", r.Method, r.Path, r.HandlerFunc)
+	route.PrintRoutes(os.Stdout, r.getAllRoutes()...)
+}
+
+func (r *RootModule) getAllRoutes() (routes []route.IRoute) {
+	for _, m := range r.modules {
+		for _, c := range m.controllers {
+			routes = append(routes, c.Routes()...)
+		}
 	}
+	return
 }
 
 func (r *RootModule) initControllers() (err error) {
@@ -307,12 +318,8 @@ func (r *RootModule) initControllers() (err error) {
 				return fmt.Errorf("Failed to Init controller from module %s:\n %w", m.module.Id(), err)
 			}
 		}
-		for _, c := range m.controllers {
-			if err = c.MountHTTP(r.engine); err != nil {
-				return fmt.Errorf("Failed to Init controller from module %s:\n %w", m.module.Id(), err)
-			}
-		}
 	}
+	route_gin.Mount(r.engine, r.getAllRoutes()...)
 	return
 }
 
