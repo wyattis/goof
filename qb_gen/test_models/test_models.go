@@ -18,3 +18,16 @@ type Comment struct {
 	CreatedAt time.Time
 	UpdatedAt gtime.TimeRFC1123
 }
+
+type Activity struct {
+	Id       int
+	SecretId string
+}
+
+func (a Activity) TableName() string {
+	return "activities"
+}
+
+func (a *Activity) SetDefaultSecretId() error {
+	return nil
+}

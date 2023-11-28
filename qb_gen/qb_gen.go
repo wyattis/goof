@@ -30,6 +30,7 @@ type Config struct {
 	Package            string
 	RootPath           string
 	Imports            []Import
+	EnableLog          bool
 }
 
 type QbConfig struct {
@@ -44,6 +45,7 @@ type CrudConfig struct {
 
 type ExecConfig struct {
 	Package string
+	Log     bool
 	Imports []Import
 	Qb      QbConfig
 	Crud    CrudConfig
@@ -55,14 +57,16 @@ type Import struct {
 }
 
 type Field struct {
-	Name         string
-	ColName      string
-	IsPrimary    bool
-	Type         reflect.Type
-	TypeStr      string
-	ShouldScan   bool
-	ShouldInsert bool
-	ShouldUpdate bool
+	Name             string
+	UriName          string
+	ColName          string
+	IsPrimary        bool
+	Type             reflect.Type
+	TypeStr          string
+	ShouldScan       bool
+	ShouldInsert     bool
+	ShouldUpdate     bool
+	HasDefaultSetter bool
 }
 
 type Model struct {
@@ -115,6 +119,19 @@ func (m Model) UpdateFields() (res []Field) {
 	return
 }
 
+func (m Model) HasDefaultSetters() bool {
+	for _, field := range m.Fields {
+		if field.HasDefaultSetter {
+			return true
+		}
+	}
+	return false
+}
+
+func (m Model) UriName() string {
+	return zstring.CamelToSnake(m.Name, "-", 2)
+}
+
 func Generate(config Config) (err error) {
 	if config.RootPath == "" {
 		config.RootPath = "./"
@@ -153,25 +170,25 @@ type IIsZero interface {
 }
 
 var funcMap = template.FuncMap{
-	"checkNonZero": func(t reflect.Type, prefix, varName string) (res string) {
+	"isZero": func(t reflect.Type, prefix, varName string) (res string) {
 		name := fmt.Sprintf("%s%s", prefix, varName)
 		switch t.Kind() {
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			res = fmt.Sprintf("%s != 0", name)
+			res = fmt.Sprintf("%s == 0", name)
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			res = fmt.Sprintf("%s != 0", name)
+			res = fmt.Sprintf("%s == 0", name)
 		case reflect.Float32, reflect.Float64:
-			res = fmt.Sprintf("%s != 0", name)
+			res = fmt.Sprintf("%s == 0", name)
 		case reflect.String:
-			res = fmt.Sprintf("%s != \"\"", name)
+			res = fmt.Sprintf("%s == \"\"", name)
 		case reflect.Bool:
 			res = fmt.Sprintf("%s", name)
 		case reflect.Ptr:
-			res = fmt.Sprintf("%s != nil", name)
+			res = fmt.Sprintf("%s == nil", name)
 		default:
 			// if implement IIsZero, use it
 			if reflect.PtrTo(t).Implements(reflect.TypeOf((*IIsZero)(nil)).Elem()) {
-				res = fmt.Sprintf("!%s.IsZero()", name)
+				res = fmt.Sprintf("%s.IsZero()", name)
 			} else {
 				panic(fmt.Sprintf("unsupported type %s", t))
 			}
@@ -187,6 +204,7 @@ func generateInto(config Config, w io.Writer) (err error) {
 	}
 
 	c := ExecConfig{
+		Log:     config.EnableLog,
 		Package: config.Package,
 		Imports: []Import{
 			{"context", ""},
@@ -219,7 +237,12 @@ func generateInto(config Config, w io.Writer) (err error) {
 	hasQb := len(c.Qb.Models) > 0
 
 	if hasCrud {
-		c.Imports = append(c.Imports, Import{Path: "github.com/wyattis/goof/gsql"})
+		c.Imports = append(c.Imports,
+			Import{Path: "github.com/wyattis/goof/gsql"},
+			Import{Path: "github.com/wyattis/goof/goof"},
+			Import{Path: "github.com/wyattis/goof/route"},
+			Import{Path: "github.com/gin-gonic/gin"},
+		)
 	}
 
 	sort.Slice(c.Imports, func(i, j int) bool {
@@ -249,7 +272,9 @@ func structsToModels(structs []any) (models []Model, imports []string) {
 	importSet := zstringset.New()
 	// Extract fields from structs using reflection
 	for _, s := range structs {
+
 		t := reflect.TypeOf(s)
+		methods := getAllStructMethods(t)
 		if t.Kind() == reflect.Ptr {
 			t = t.Elem()
 		}
@@ -265,17 +290,25 @@ func structsToModels(structs []any) (models []Model, imports []string) {
 		if model.PackagePath != "" {
 			importSet.Add(model.PackagePath)
 		}
+		defaultSetters := zset.New[string]()
+		for _, method := range methods {
+			if strings.HasPrefix(method.Name, "SetDefault") {
+				defaultSetters.Add(method.Name[10:])
+			}
+		}
 		for i := 0; i < t.NumField(); i++ {
 			field := t.Field(i)
 			model.Fields = append(model.Fields, Field{
-				Name:         field.Name,
-				ColName:      zstring.CamelToSnake(field.Name, "_", 2),
-				Type:         field.Type,
-				TypeStr:      field.Type.String(),
-				ShouldScan:   true,
-				IsPrimary:    strings.ToLower(field.Name) == "id",
-				ShouldInsert: strings.ToLower(field.Name) != "id",
-				ShouldUpdate: strings.ToLower(field.Name) != "id",
+				Name:             field.Name,
+				ColName:          zstring.CamelToSnake(field.Name, "_", 2),
+				UriName:          zstring.CamelToSnake(model.Name+field.Name, "_", 2),
+				Type:             field.Type,
+				TypeStr:          field.Type.String(),
+				ShouldScan:       true,
+				IsPrimary:        strings.ToLower(field.Name) == "id",
+				ShouldInsert:     strings.ToLower(field.Name) != "id",
+				ShouldUpdate:     strings.ToLower(field.Name) != "id",
+				HasDefaultSetter: defaultSetters.Contains(field.Name),
 			})
 			if field.Type.PkgPath() != "" {
 				importSet.Add(field.Type.PkgPath())
@@ -284,5 +317,15 @@ func structsToModels(structs []any) (models []Model, imports []string) {
 		models = append(models, model)
 	}
 	imports = importSet.Items()
+	return
+}
+
+func getAllStructMethods(t reflect.Type) (methods []reflect.Method) {
+	if t.Kind() != reflect.Ptr {
+		t = reflect.PtrTo(t)
+	}
+	for i := 0; i < t.NumMethod(); i++ {
+		methods = append(methods, t.Method(i))
+	}
 	return
 }

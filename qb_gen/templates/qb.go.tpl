@@ -149,7 +149,7 @@ func (b {{ .BuilderName }}Update) ToSql() (sql string, params []interface{}, err
     // Only update our non-zero fields
     updates := []string{}
     {{ range $i, $f := .UpdateFields }}
-    if {{ checkNonZero .Type "b.value." .Name }} {
+    if !({{ isZero .Type "b.value." .Name }}) {
       updates = append(updates, "{{ .ColName }} = ?")
       params = append(params, b.value.{{ .Name }})
     }
@@ -168,7 +168,7 @@ func (b {{ .BuilderName }}Update) ToSql() (sql string, params []interface{}, err
     }
   } else {
     {{ range .PrimaryKeys -}}
-    if !({{ checkNonZero .Type "b.value." .Name }}) {
+    if {{ isZero .Type "b.value." .Name }} {
       return "", nil, errors.New("Primary key of `{{ .Name }}` must be non-zero to update. Otherwise, use Where() to specify which rows to update")
     }
     {{- end }}
@@ -215,8 +215,32 @@ func (b *{{ .BuilderName }}Insert) Values(values ...{{ .ModelName }}) *{{ .Build
   return b
 }
 
+{{ if .HasDefaultSetters }}
+// set default values if there are setter fields
+func set{{ .Name }}Defaults (m *{{ .ModelName }}) (err error) {
+  {{ range .Fields -}}
+  {{ if .HasDefaultSetter -}}
+  if {{ isZero .Type "m." .Name }} {
+    if err = m.SetDefault{{ .Name }}(); err != nil {
+      return
+    }
+  }
+  {{ end }}
+  {{- end }}
+  return
+}
+{{ end }}
+
 // Insert a single model into the database.
 func (b {{ .BuilderName }}Insert) Exec(db gsql.IExec) (sql.Result, error) {
+  {{ if .HasDefaultSetters -}}
+  for i := range b.values {
+    if err := set{{ .Name }}Defaults(&b.values[i]); err != nil {
+      return nil, err
+    }
+  }
+  {{- end }}
+
   sql, params, err := b.ToSql()
   if err != nil {
     return nil, err
@@ -226,6 +250,14 @@ func (b {{ .BuilderName }}Insert) Exec(db gsql.IExec) (sql.Result, error) {
 
 // Same as Exec, but with a context.
 func (b {{ .BuilderName }}Insert) ExecContext(ctx context.Context, db gsql.IExecContext) (sql.Result, error) {
+  {{ if .HasDefaultSetters -}}
+  for i := range b.values {
+    if err := set{{ .Name }}Defaults(&b.values[i]); err != nil {
+      return nil, err
+    }
+  }
+  {{- end }}
+  
   sql, params, err := b.ToSql()
   if err != nil {
     return nil, err
@@ -343,24 +375,78 @@ func (b *{{ .BuilderName }}SelectBuilder) Offset(offset int) *{{ .BuilderName }}
   return b
 }
 
+// Execute the query and scan all of the rows
+func (b *{{ .BuilderName }}SelectBuilder) Exec(db gsql.IQuery) (models []{{ .ModelName }}, err error) {
+  err = b.ExecScan(db, &models)
+  return
+}
+
+// Same as Exec, but with a context.
+func (b *{{ .BuilderName }}SelectBuilder) ExecContext(ctx context.Context, db gsql.IQueryContext) (models []{{ .ModelName }}, err error) {
+  err = b.ExecScanContext(ctx, db, &models)
+  return
+}
+
+// Same as Exec, but scan the rows into the provided models. All results will be appended to the provided slice.
+func (b *{{ .BuilderName }}SelectBuilder) ExecScan(db gsql.IQuery, scanResults *[]{{ .ModelName }}) (err error) {
+  sql, params, err := b.ToSql()
+  if err != nil {
+    return
+  }
+  rows, err := db.Query(sql, params...)
+  if err != nil {
+    return
+  }
+  defer rows.Close()
+  for rows.Next() {
+    m := {{ .ModelName }}{}
+    if err = rows.Scan({{ .ScanFields "m" }}); err != nil {
+      return
+    }
+    *scanResults = append(*scanResults, m)
+  }
+  return
+}
+
+// Same as ExecScan, but with a context
+func (b *{{ .BuilderName }}SelectBuilder) ExecScanContext(ctx context.Context, db gsql.IQueryContext, scanDest *[]{{ .ModelName }}) (err error) {
+  sql, params, err := b.ToSql() 
+  if err != nil {
+    return
+  }
+  rows, err := db.QueryContext(ctx, sql, params...)
+  if err != nil {
+    return
+  }
+  defer rows.Close()
+  for rows.Next() {
+    m := {{ .ModelName }}{}
+    if err = rows.Scan({{ .ScanFields "m" }}); err != nil {
+      return
+    }
+    *scanDest = append(*scanDest, m)
+  }
+  return
+}
+
 // Returns a single model matching the query. If the query returns multiple rows, only the first will be returned.
 func (b *{{ .BuilderName }}SelectBuilder) Get(db gsql.IQueryRow) (model *{{ .ModelName }}, err error) {
   model = &{{ .ModelName }}{}
-  err = b.GetScan(model, db)
+  err = b.GetScan(db, model)
   return 
 }
 
 // Same as Get, but with a context.
 func (b *{{ .BuilderName }}SelectBuilder) GetContext(ctx context.Context, db gsql.IQueryRowContext) (model *{{ .ModelName }}, err error) {
   model = &{{ .ModelName }}{}
-  if err = b.GetScanContext(ctx, model, db); err != nil {
+  if err = b.GetScanContext(ctx, db, model); err != nil {
     return nil, err
   }
   return
 }
 
 // Same as Get, but scans the result into the provided model.
-func (b *{{ .BuilderName }}SelectBuilder) GetScan(model *{{ .ModelName }}, db gsql.IQueryRow) (err error) {
+func (b *{{ .BuilderName }}SelectBuilder) GetScan(db gsql.IQueryRow, model *{{ .ModelName }}) (err error) {
   sql, params, err := b.ToSql()
   if err != nil {
     return
@@ -370,7 +456,7 @@ func (b *{{ .BuilderName }}SelectBuilder) GetScan(model *{{ .ModelName }}, db gs
 }
 
 // Same as GetScan, but with a context.
-func (b *{{ .BuilderName }}SelectBuilder) GetScanContext(ctx context.Context, model *{{ .ModelName }}, db gsql.IQueryRowContext) (err error) {
+func (b *{{ .BuilderName }}SelectBuilder) GetScanContext(ctx context.Context, db gsql.IQueryRowContext, model *{{ .ModelName }}) (err error) {
   sql, params, err := b.ToSql()
   if err != nil {
     return
@@ -504,13 +590,33 @@ func (w {{ .BuilderName }}SelectWhere) GetContext(ctx context.Context, db gsql.I
 }
 
 // Same as Get, but scans the result into the provided model.
-func (w {{ .BuilderName }}SelectWhere) GetScan(model *{{ .ModelName }}, db gsql.IQueryRow) (err error) {
-  return w.parent.GetScan(model, db)
+func (w {{ .BuilderName }}SelectWhere) GetScan(db gsql.IQueryRow, model *{{ .ModelName }}) (err error) {
+  return w.parent.GetScan(db, model)
 }
 
 // Same as GetScan, but with a context.
-func (w {{ .BuilderName }}SelectWhere) GetScanContext(ctx context.Context, model *{{ .ModelName }}, db gsql.IQueryRowContext) (err error) {
-  return w.parent.GetScanContext(ctx, model, db)
+func (w {{ .BuilderName }}SelectWhere) GetScanContext(ctx context.Context, db gsql.IQueryRowContext, model *{{ .ModelName }}) (err error) {
+  return w.parent.GetScanContext(ctx, db, model)
+}
+
+// Execute the query and scan all of the rows
+func (w *{{ .BuilderName }}SelectWhere) Exec(db gsql.IQuery) (models []{{ .ModelName }}, err error) {
+  return w.parent.Exec(db)
+}
+
+// Same as Exec, but with a context.
+func (w *{{ .BuilderName }}SelectWhere) ExecContext(ctx context.Context, db gsql.IQueryContext) (models []{{ .ModelName }}, err error) {
+  return w.parent.ExecContext(ctx, db)
+}
+
+// Same as Exec, but scan the rows into the provided models. All results will be appended to the provided slice.
+func (w *{{ .BuilderName }}SelectWhere) ExecScan(db gsql.IQuery, scanResults *[]{{ .ModelName }}) (err error) {
+  return w.parent.ExecScan(db, scanResults)
+}
+
+// Same as ExecScan, but with a context
+func (w *{{ .BuilderName }}SelectWhere) ExecScanContext(ctx context.Context, db gsql.IQueryContext, scanDest *[]{{ .ModelName }}) (err error) {
+  return w.parent.ExecScanContext(ctx, db, scanDest)
 }
 
 {{ end }}
@@ -571,13 +677,13 @@ func (b {{ .BuilderName }}SelectBuilderFactory) GetContext(ctx context.Context, 
 }
 
 // Same as Get, but scans the result into the provided model.
-func (b {{ .BuilderName }}SelectBuilderFactory) GetScan(model *{{ .ModelName }}, db gsql.IQueryRow) (err error) {
-  return new{{ .BuilderName }}SelectBuilder().GetScan(model, db)
+func (b {{ .BuilderName }}SelectBuilderFactory) GetScan(db gsql.IQueryRow, model *{{ .ModelName }}) (err error) {
+  return new{{ .BuilderName }}SelectBuilder().GetScan(db, model)
 }
 
 // Same as GetScan, but with a context.
-func (b {{ .BuilderName }}SelectBuilderFactory) GetScanContext(ctx context.Context, model *{{ .ModelName }}, db gsql.IQueryRowContext) (err error) {
-  return new{{ .BuilderName }}SelectBuilder().GetScanContext(ctx, model, db)
+func (b {{ .BuilderName }}SelectBuilderFactory) GetScanContext(ctx context.Context, db gsql.IQueryRowContext, model *{{ .ModelName }}) (err error) {
+  return new{{ .BuilderName }}SelectBuilder().GetScanContext(ctx, db, model)
 }
 {{ end }}
 

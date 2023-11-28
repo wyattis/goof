@@ -8,8 +8,8 @@ import (
 
 func TestGenerateQb(t *testing.T) {
 	err := Generate(Config{
-		QueryBuilders: []any{test_models.User{}, test_models.Comment{}},
-		Crud:          []any{test_models.User{}, test_models.Comment{}},
+		QueryBuilders: []any{test_models.User{}, test_models.Comment{}, test_models.Activity{}},
+		Crud:          []any{test_models.User{}, test_models.Comment{}, test_models.Activity{}},
 	})
 	if err != nil {
 		t.Fatal(err)

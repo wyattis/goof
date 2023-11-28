@@ -1,4 +1,4 @@
-package goof
+package route_gin
 
 import (
 	"reflect"
