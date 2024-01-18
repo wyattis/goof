@@ -2,11 +2,11 @@ package conf
 
 import (
 	"os"
-	"reflect"
 	"strings"
 
 	"github.com/joho/godotenv"
 	"github.com/wyattis/goof/log"
+	"github.com/wyattis/z/zreflect"
 )
 
 type envConfigurer struct {
@@ -35,7 +35,15 @@ func (e *envConfigurer) Apply(val interface{}, args ...string) (err error) {
 		}
 	}
 
-	return forEachField(val, func(path []string, key string, field reflect.StructField, v reflect.Value) (err error) {
+	it := zreflect.FieldIterator(val)
+	for it.Next() {
+		if !it.IsStructField() {
+			continue
+		}
+		v := it.Value()
+		field := it.Field()
+		path := it.Path()
+		key := it.Key()
 		name := field.Tag.Get("env")
 		if name == "" {
 			if e.prefix != "" {
@@ -51,8 +59,8 @@ func (e *envConfigurer) Apply(val interface{}, args ...string) (err error) {
 				return
 			}
 		}
-		return
-	})
+	}
+	return
 }
 
 func (e *envConfigurer) loadFiles(vals map[string]string) (err error) {

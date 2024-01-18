@@ -24,8 +24,8 @@ func (d *defaultConfigurer) Apply(val interface{}, args ...string) (err error) {
 	it := zreflect.FieldIterator(val)
 	for it.Next() {
 		v := it.Value()
-		fmt.Println(it.Type(), it.Path(), it.Key(), v.String(), it.IsStruct())
-		if !it.IsStruct() {
+		fmt.Println(it.Type(), it.Path(), it.Key(), v.String(), it.IsStructField())
+		if !it.IsStructField() {
 			continue
 		}
 		field := it.Field()

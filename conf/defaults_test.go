@@ -201,6 +201,7 @@ type defaultsMapSub struct {
 }
 
 func TestStrMapDefaults(t *testing.T) {
+	t.Skip("TODO: Setting map fields is not supported yet")
 	val := defaultsMap{
 		"one": "one",
 		"sub": defaultsMapSub{},

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/wyattis/goof/log"
+	"github.com/wyattis/z/zreflect"
 	"github.com/wyattis/z/zstring"
 )
 
@@ -57,9 +58,18 @@ func (f *FlagConfigurer) Init(val interface{}) (err error) {
 		f.flagSet = flag.CommandLine
 	}
 	f.vals = make(map[string]flagVal)
-	forEachField(val, func(path []string, key string, field reflect.StructField, v reflect.Value) (err error) {
+	it := zreflect.FieldIterator(val)
+	for it.Next() {
+		fmt.Println(it.Type(), it.Path(), it.Key(), it.Value().String(), it.IsStructField())
+		v := it.Value()
+		if !it.IsStructField() {
+			continue
+		}
+		field := it.Field()
+		path := it.Path()
+		key := it.Key()
 		flagTag := field.Tag.Get("flag")
-		name, usage, found := strings.Cut(flagTag, ",")
+		name, usage, _ := strings.Cut(flagTag, ",")
 		if name == "" {
 			parts := make([]string, len(path)+1)
 			copy(parts, path)
@@ -74,7 +84,7 @@ func (f *FlagConfigurer) Init(val interface{}) (err error) {
 		} else {
 			name = strings.ToLower(name)
 		}
-		if !found {
+		if usage == "" {
 			usage = fmt.Sprintf("Set the %s value", name)
 		}
 		log.Trace().Str("name", name).Str("usage", usage).Msg("Adding flag")
@@ -84,10 +94,10 @@ func (f *FlagConfigurer) Init(val interface{}) (err error) {
 			val := ""
 			f.vals[name] = flagVal{rVal: v, val: &val, tag: field.Tag}
 			f.flagSet.StringVar(&val, name, val, usage)
-			return errDontDescend
-		}
-		if k == reflect.Struct {
-			return
+			it.DontDescend()
+			continue
+		} else if k == reflect.Struct {
+			continue
 		}
 		switch k {
 		case reflect.Bool:
@@ -113,8 +123,7 @@ func (f *FlagConfigurer) Init(val interface{}) (err error) {
 		default:
 			return fmt.Errorf("unsupported type %s", v.Type())
 		}
-		return
-	})
+	}
 	return
 }
 

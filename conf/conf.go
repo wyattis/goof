@@ -150,45 +150,6 @@ func Prefix(prefix string) configOption {
 	}
 }
 
-var errDontDescend = errors.New("don't descend into field")
-
-type fieldHandler = func(path []string, key string, field reflect.StructField, value reflect.Value) (err error)
-
-func forEachField(v any, cb fieldHandler) (err error) {
-	return recursiveIterFields(nil, reflect.Indirect(reflect.ValueOf(v)), cb)
-}
-
-func recursiveIterFields(path []string, val reflect.Value, cb fieldHandler) (err error) {
-	k := val.Kind()
-	if k == reflect.Ptr {
-		val = val.Elem()
-	}
-	isIterable := k == reflect.Struct || k == reflect.Map
-	if !isIterable {
-		return
-	}
-	typ := val.Type()
-	for i := 0; i < typ.NumField(); i++ {
-		field := typ.Field(i)
-		value := val.Field(i)
-		if err = cb(path, field.Name, field, value); err != nil {
-			if err == errDontDescend {
-				err = nil
-				continue
-			}
-			return
-		}
-		k := field.Type.Kind()
-		if k == reflect.Struct || k == reflect.Map {
-			if err = recursiveIterFields(append(path, field.Name), reflect.Indirect(value), cb); err != nil {
-				return
-			}
-		}
-	}
-
-	return
-}
-
 // This parses a string value and applies it to the reflected Value (reflect.Value)
 func setValFromStr(v reflect.Value, fieldType reflect.StructField, strVal string) (err error) {
 	k := v.Kind()
