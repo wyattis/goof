@@ -2,10 +2,12 @@ package conf
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"time"
 
 	"github.com/wyattis/goof/log"
+	"github.com/wyattis/z/zreflect"
 )
 
 type defaultConfigurer struct{}
@@ -19,8 +21,18 @@ func (d *defaultConfigurer) Apply(val interface{}, args ...string) (err error) {
 	if reflect.TypeOf(val).Kind() != reflect.Ptr {
 		return errors.New("value must be a pointer")
 	}
-	return forEachField(val, func(path []string, key string, field reflect.StructField, v reflect.Value) (err error) {
+	it := zreflect.FieldIterator(val)
+	for it.Next() {
+		v := it.Value()
+		fmt.Println(it.Type(), it.Path(), it.Key(), v.String(), it.IsStruct())
+		if !it.IsStruct() {
+			continue
+		}
+		field := it.Field()
 		defaultTag := field.Tag.Get("default")
+		if defaultTag == "" {
+			continue
+		}
 		if v.CanInterface() {
 			f := v
 			if f.CanAddr() {
@@ -30,18 +42,32 @@ func (d *defaultConfigurer) Apply(val interface{}, args ...string) (err error) {
 				if err = set.SetConfig(defaultTag); err != nil {
 					return
 				}
-				return errDontDescend
+				it.DontDescend()
 			}
 		}
-		if defaultTag != "" {
-			log.Trace().Str("field", field.Name).Str("value", defaultTag).Msg("Setting default value")
-			if err = setValFromStr(v, field, defaultTag); err != nil {
-				return
-			}
-		} else if field.Type == reflect.TypeOf(time.Time{}) {
-			// Don't descend into time.Time fields
-			return errDontDescend
+		log.Trace().Str("field", field.Name).Str("value", defaultTag).
+			Bool("canSet", v.CanSet()).
+			Bool("canAddr", v.CanAddr()).
+			Bool("canInterface", v.CanInterface()).
+			Str("type", v.Type().String()).
+			Msg("Setting default value")
+		k := v.Kind()
+		newVal, err := getValFromStr(v, field, defaultTag)
+		if err != nil {
+			return err
 		}
-		return
-	})
+		if k == reflect.Ptr {
+			it.Set(newVal)
+		} else {
+			it.Set(newVal.Elem())
+		}
+
+		// if err = setValFromStr(v, field, defaultTag); err != nil {
+		// 	return
+		// }
+		if field.Type == reflect.TypeOf(time.Time{}) {
+			it.DontDescend()
+		}
+	}
+	return
 }

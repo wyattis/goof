@@ -11,12 +11,17 @@ import (
 
 type envConfigurer struct {
 	filepaths     []string
+	prefix        string
 	fileMustExist bool
 	onlyFiles     bool
 }
 
 func (e *envConfigurer) Init(val interface{}) (err error) {
 	return
+}
+
+func (e *envConfigurer) SetPrefix(prefix string) {
+	e.prefix = prefix
 }
 
 func (e *envConfigurer) Apply(val interface{}, args ...string) (err error) {
@@ -33,6 +38,9 @@ func (e *envConfigurer) Apply(val interface{}, args ...string) (err error) {
 	return forEachField(val, func(path []string, key string, field reflect.StructField, v reflect.Value) (err error) {
 		name := field.Tag.Get("env")
 		if name == "" {
+			if e.prefix != "" {
+				path = append([]string{e.prefix}, path...)
+			}
 			name = strings.ToUpper(strings.Join(append(path, key), "_"))
 		} else {
 			name = strings.ToUpper(name)

@@ -17,10 +17,6 @@ type stringDefaults struct {
 	}
 }
 
-func ptrTo[T any](t T) *T {
-	return &t
-}
-
 func TestStringDefaults(t *testing.T) {
 	val := stringDefaults{}
 	c := defaultConfigurer{}
@@ -73,7 +69,7 @@ func TestIntDefaults(t *testing.T) {
 			Three int `default:"3"`
 		}{Three: 3},
 	}
-	if val != expected {
+	if !reflect.DeepEqual(val, expected) {
 		t.Errorf("Expected %+v, but got %+v", expected, val)
 	}
 }
@@ -109,7 +105,7 @@ func TestUintDefaults(t *testing.T) {
 			Three uint `default:"3"`
 		}{Three: 3},
 	}
-	if val != expected {
+	if !reflect.DeepEqual(val, expected) {
 		t.Errorf("Expected %+v, but got %+v", expected, val)
 	}
 }
@@ -137,7 +133,7 @@ func TestFloatDefaults(t *testing.T) {
 			Three float32 `default:"3.3"`
 		}{Three: 3.3},
 	}
-	if val != expected {
+	if !reflect.DeepEqual(val, expected) {
 		t.Errorf("Expected %+v, but got %+v", expected, val)
 	}
 }

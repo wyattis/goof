@@ -5,7 +5,6 @@ package conf
 
 import (
 	"errors"
-	"flag"
 	"reflect"
 	"strconv"
 	"time"
@@ -17,6 +16,10 @@ type ConfigSettable interface {
 	SetConfig(val interface{}) error
 }
 
+type ConfigPrefixable interface {
+	SetPrefix(prefix string)
+}
+
 type Configurer interface {
 	Init(val interface{}) error
 	Apply(val interface{}, args ...string) error
@@ -26,6 +29,7 @@ type configOption = func(c *zconfig) error
 
 type zconfig struct {
 	configurers   []Configurer
+	prefix        string
 	isInitialized bool
 }
 
@@ -42,8 +46,13 @@ func New(opts ...configOption) *zconfig {
 
 func (c *zconfig) Init(val interface{}) (err error) {
 	c.isInitialized = true
-	for _, opt := range c.configurers {
-		if err = opt.Init(val); err != nil {
+	for _, conf := range c.configurers {
+		if pi, ok := conf.(ConfigPrefixable); ok {
+			pi.SetPrefix(c.prefix)
+		}
+	}
+	for _, conf := range c.configurers {
+		if err = conf.Init(val); err != nil {
 			return
 		}
 	}
@@ -134,21 +143,9 @@ func Flag(opts ...flagOpt) configOption {
 	}
 }
 
-type flagOpt = func(c *FlagConfigurer) error
-
-// Provide a custom flag set. This is useful if you want to parse the flags yourself or are using an external library.
-func UseFlagSet(fs *flag.FlagSet) flagOpt {
-	return func(c *FlagConfigurer) error {
-		c.flagSet = fs
-		return nil
-	}
-}
-
-// Tell the Flag configurer not to parse the flag set. This is useful if you want to parse the flags yourself or are
-// using an external library.
-func SkipParse() flagOpt {
-	return func(c *FlagConfigurer) error {
-		c.dontParseFlagSet = true
+func Prefix(prefix string) configOption {
+	return func(c *zconfig) error {
+		c.prefix = prefix
 		return nil
 	}
 }
@@ -171,42 +168,24 @@ func recursiveIterFields(path []string, val reflect.Value, cb fieldHandler) (err
 		return
 	}
 	typ := val.Type()
-	if k == reflect.Map {
-		for _, key := range val.MapKeys() {
-			value := val.MapIndex(key)
-			if err = cb(path, key.String(), nil, value); err != nil {
-				if err == errDontDescend {
-					err = nil
-					continue
-				}
-				return
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		value := val.Field(i)
+		if err = cb(path, field.Name, field, value); err != nil {
+			if err == errDontDescend {
+				err = nil
+				continue
 			}
-			k := value.Type().Kind()
-			if k == reflect.Struct || k == reflect.Map {
-				if err = recursiveIterFields(append(path, key.String()), reflect.Indirect(value), cb); err != nil {
-					return
-				}
-			}
+			return
 		}
-	} else {
-		for i := 0; i < typ.NumField(); i++ {
-			field := typ.Field(i)
-			value := val.Field(i)
-			if err = cb(path, field.Name, field, value); err != nil {
-				if err == errDontDescend {
-					err = nil
-					continue
-				}
+		k := field.Type.Kind()
+		if k == reflect.Struct || k == reflect.Map {
+			if err = recursiveIterFields(append(path, field.Name), reflect.Indirect(value), cb); err != nil {
 				return
-			}
-			k := field.Type.Kind()
-			if k == reflect.Struct || k == reflect.Map {
-				if err = recursiveIterFields(append(path, field.Name), reflect.Indirect(value), cb); err != nil {
-					return
-				}
 			}
 		}
 	}
+
 	return
 }
 
@@ -260,6 +239,101 @@ func setValFromStr(v reflect.Value, fieldType reflect.StructField, strVal string
 		v.SetBool(b)
 	default:
 		return errors.New("unsupported type")
+	}
+	return
+}
+
+func ptrTo[T any](v T) *T {
+	return &v
+}
+
+func getValFromStr(v reflect.Value, fieldType reflect.StructField, strVal string) (newVal reflect.Value, err error) {
+	k := v.Kind()
+	t := v.Type()
+
+	isPointer := k == reflect.Ptr
+	if isPointer {
+		if v.IsNil() {
+			v = reflect.New(t.Elem())
+		}
+		v = v.Elem()
+		k = v.Kind()
+		t = v.Type()
+	}
+
+	if t == reflect.TypeOf(time.Time{}) {
+		timeVal, err := ztime.Parse(strVal)
+		if err != nil {
+			return reflect.Value{}, err
+		}
+		return reflect.ValueOf(&timeVal), nil
+	} else if t == reflect.TypeOf(time.Duration(0)) {
+		durVal, err := time.ParseDuration(strVal)
+		if err != nil {
+			return reflect.Value{}, err
+		}
+		return reflect.ValueOf(&durVal), nil
+	}
+
+	switch k {
+	case reflect.String:
+		newVal = reflect.ValueOf(&strVal)
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		i, err := strconv.ParseInt(strVal, 10, 64)
+		if err != nil {
+			return reflect.Value{}, err
+		}
+		switch k {
+		case reflect.Int:
+			newVal = reflect.ValueOf(ptrTo(int(i)))
+		case reflect.Int8:
+			newVal = reflect.ValueOf(ptrTo(int8(i)))
+		case reflect.Int16:
+			newVal = reflect.ValueOf(ptrTo(int16(i)))
+		case reflect.Int32:
+			newVal = reflect.ValueOf(ptrTo(int32(i)))
+		case reflect.Int64:
+			newVal = reflect.ValueOf(ptrTo(i))
+		}
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		i, err := strconv.ParseUint(strVal, 10, 64)
+		if err != nil {
+			return reflect.Value{}, err
+		}
+		switch k {
+		case reflect.Uint:
+			newVal = reflect.ValueOf(ptrTo(uint(i)))
+		case reflect.Uint8:
+			newVal = reflect.ValueOf(ptrTo(uint8(i)))
+		case reflect.Uint16:
+			newVal = reflect.ValueOf(ptrTo(uint16(i)))
+		case reflect.Uint32:
+			newVal = reflect.ValueOf(ptrTo(uint32(i)))
+		case reflect.Uint64:
+			newVal = reflect.ValueOf(ptrTo(i))
+		}
+	case reflect.Float32, reflect.Float64:
+		i, err := strconv.ParseFloat(strVal, 64)
+		if err != nil {
+			return reflect.Value{}, err
+		}
+		switch k {
+		case reflect.Float32:
+			newVal = reflect.ValueOf(ptrTo(float32(i)))
+		case reflect.Float64:
+			newVal = reflect.ValueOf(ptrTo(i))
+		}
+	case reflect.Bool:
+		b, err := strconv.ParseBool(strVal)
+		if err != nil {
+			return reflect.Value{}, err
+		}
+		newVal = reflect.ValueOf(&b)
+	default:
+		return reflect.Value{}, errors.New("unsupported type")
+	}
+	if newVal.Kind() != reflect.Ptr {
+		return reflect.Value{}, errors.New("expected pointer")
 	}
 	return
 }

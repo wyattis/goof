@@ -11,6 +11,25 @@ import (
 	"github.com/wyattis/z/zstring"
 )
 
+type flagOpt = func(c *FlagConfigurer) error
+
+// Provide a custom flag set. This is useful if you want to parse the flags yourself or are using an external library.
+func UseFlagSet(fs *flag.FlagSet) flagOpt {
+	return func(c *FlagConfigurer) error {
+		c.flagSet = fs
+		return nil
+	}
+}
+
+// Tell the Flag configurer not to parse the flag set. This is useful if you want to parse the flags yourself or are
+// using an external library.
+func SkipParse() flagOpt {
+	return func(c *FlagConfigurer) error {
+		c.dontParseFlagSet = true
+		return nil
+	}
+}
+
 type flagVal struct {
 	rVal reflect.Value
 	tag  reflect.StructTag
@@ -19,8 +38,13 @@ type flagVal struct {
 
 type FlagConfigurer struct {
 	flagSet          *flag.FlagSet
+	prefix           string
 	vals             map[string]flagVal
 	dontParseFlagSet bool
+}
+
+func (f *FlagConfigurer) SetPrefix(prefix string) {
+	f.prefix = prefix
 }
 
 func (f *FlagConfigurer) SetFlagSet(flagSet *flag.FlagSet) {
@@ -39,7 +63,10 @@ func (f *FlagConfigurer) Init(val interface{}) (err error) {
 		if name == "" {
 			parts := make([]string, len(path)+1)
 			copy(parts, path)
-			parts[len(path)] = key
+			if f.prefix != "" {
+				parts = append([]string{f.prefix}, parts...)
+			}
+			parts[len(parts)-1] = key
 			for i := range parts {
 				parts[i] = zstring.CamelToSnake(parts[i], "-", 2)
 			}
