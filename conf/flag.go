@@ -136,48 +136,52 @@ func (f *FlagConfigurer) Apply(val interface{}, args ...string) (err error) {
 	}
 	for name, v := range f.vals {
 		t := v.rVal.Type()
-		log.Trace().Str("flag", name).Interface("val", v.val).Type("type", t).Msg("Setting flag value")
-		if t == reflect.TypeOf(time.Time{}) {
-			if err = setTimeVal(v.rVal, v.tag, reflect.ValueOf(v.val).Elem().String()); err != nil {
-				return
-			}
-			continue
-		} else if t == reflect.TypeOf(time.Duration(0)) {
-			if err = setDurationVal(v.rVal, reflect.ValueOf(v.val).Elem().String()); err != nil {
-				return
-			}
-			continue
+		log.Trace().Str("flag", name).Interface("val", v.val).Str("type", t.String()).Msg("Setting flag value")
+		if err = zreflect.SetValue(v.rVal, v.val); err != nil {
+			return
 		}
+		// if t == reflect.TypeOf(time.Time{}) {
 
-		switch v.rVal.Kind() {
-		case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
-			if reflect.ValueOf(v.val).Elem().Int() == 0 {
-				continue
-			}
-			v.rVal.SetInt(reflect.ValueOf(v.val).Elem().Int())
-		case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
-			if reflect.ValueOf(v.val).Elem().Uint() == 0 {
-				continue
-			}
-			v.rVal.SetUint(reflect.ValueOf(v.val).Elem().Uint())
-		case reflect.Float32, reflect.Float64:
-			if reflect.ValueOf(v.val).Elem().Float() == 0 {
-				continue
-			}
-			v.rVal.SetFloat(reflect.ValueOf(v.val).Elem().Float())
-		case reflect.String:
-			if reflect.ValueOf(v.val).Elem().String() == "" {
-				continue
-			}
-			v.rVal.SetString(reflect.ValueOf(v.val).Elem().String())
-		case reflect.Bool:
-			if !reflect.ValueOf(v.val).Elem().Bool() {
-				continue
-			}
-			v.rVal.SetBool(reflect.ValueOf(v.val).Elem().Bool())
-		default:
-			v.rVal.Set(reflect.ValueOf(v.val).Elem())
-		}
+		// 	if err = setTimeVal(v.rVal, v.tag, reflect.ValueOf(v.val).Elem().String()); err != nil {
+		// 		return
+		// 	}
+		// 	continue
+		// } else if t == reflect.TypeOf(time.Duration(0)) {
+		// 	if err = setDurationVal(v.rVal, reflect.ValueOf(v.val).Elem().String()); err != nil {
+		// 		return
+		// 	}
+		// 	continue
+		// }
+
+		// switch v.rVal.Kind() {
+		// case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
+		// 	if reflect.ValueOf(v.val).Elem().Int() == 0 {
+		// 		continue
+		// 	}
+		// 	v.rVal.SetInt(reflect.ValueOf(v.val).Elem().Int())
+		// case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
+		// 	if reflect.ValueOf(v.val).Elem().Uint() == 0 {
+		// 		continue
+		// 	}
+		// 	v.rVal.SetUint(reflect.ValueOf(v.val).Elem().Uint())
+		// case reflect.Float32, reflect.Float64:
+		// 	if reflect.ValueOf(v.val).Elem().Float() == 0 {
+		// 		continue
+		// 	}
+		// 	v.rVal.SetFloat(reflect.ValueOf(v.val).Elem().Float())
+		// case reflect.String:
+		// 	if reflect.ValueOf(v.val).Elem().String() == "" {
+		// 		continue
+		// 	}
+		// 	v.rVal.SetString(reflect.ValueOf(v.val).Elem().String())
+		// case reflect.Bool:
+		// 	if !reflect.ValueOf(v.val).Elem().Bool() {
+		// 		continue
+		// 	}
+		// 	v.rVal.SetBool(reflect.ValueOf(v.val).Elem().Bool())
+		// default:
+		// 	v.rVal.Set(reflect.ValueOf(v.val).Elem())
+		// }
 	}
 	return
 }

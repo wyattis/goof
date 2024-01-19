@@ -122,7 +122,6 @@ func ExampleEnvFiles() {
 		panic(err)
 	}
 
-	// Output:
 }
 
 func ExampleEnv() {
@@ -143,5 +142,4 @@ func ExampleEnv() {
 		panic(err)
 	}
 
-	// Output:
 }
